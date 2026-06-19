@@ -1,0 +1,340 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "zskills Configuration",
+  "description": "Configuration for zskills agent skill system. Controls execution modes, testing, CI, and UI verification.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path to this schema file (for VS Code validation)."
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Human-readable project name. Used in PR titles and reports."
+    },
+    "timezone": {
+      "type": "string",
+      "description": "IANA timezone for timestamps in reports and markers. Example: America/New_York",
+      "default": "America/New_York"
+    },
+    "zskills_version": {
+      "type": "string",
+      "default": "",
+      "description": "Installed zskills version fingerprint, formatted as YYYY.MM.D+<hash>. Written by /update-zskills install/update; read by /briefing's 'Z Skills Update Check' to compare against the source repo's latest release tag. Optional — when empty, the briefing falls back to '(unknown)'."
+    },
+    "execution": {
+      "type": "object",
+      "description": "Controls how agent work reaches main.",
+      "properties": {
+        "landing": {
+          "type": "string",
+          "enum": ["cherry-pick", "pr", "direct"],
+          "default": "cherry-pick",
+          "description": "Default landing mode. cherry-pick: work in worktree, cherry-pick to main. pr: work in named worktree, push branch, create PR. direct: work on main, no landing step."
+        },
+        "main_protected": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, agents cannot commit, cherry-pick, or push to main. Forces PR or feature branch workflow."
+        },
+        "branch_prefix": {
+          "type": "string",
+          "default": "feat/",
+          "description": "Prefix for branch names in PR mode. Examples: 'feat/', 'agent/', '' (empty = no prefix)."
+        },
+        "worktree_root": {
+          "type": "string",
+          "default": "/tmp",
+          "description": "Parent directory under which scripts/create-worktree.sh places new worktrees. Each worktree lands at '<worktree_root>/<project>[-<prefix>]-<slug>'. Default /tmp keeps ephemeral work off the repo's filesystem.",
+          "examples": ["/tmp", "/var/tmp", "/home/vscode/worktrees"]
+        },
+        "max_concurrent_worktrees": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "description": "Sprint-wide cap on the number of live `fix/issue-*` worktrees `/fix-issues` keeps active concurrently. Distinct from the hardcoded per-message dispatch I/O contention cap (also 3, which prevents simultaneous 9p git-checkout stalls). This cap bounds AGGREGATE live worktrees throughout a sprint — by mid-sprint a /fix-issues N with N>cap would otherwise have all N worktrees alive concurrently (each running tests, a verifier, and a CI workflow), which can OOM/stall resource-constrained dev containers. When the live count is at or above this cap, the sprint defers new dispatches and waits for cron to retry after prior worktrees have landed. Raise above 3 only on hosts with ample CPU/memory/disk."
+        },
+        "dashboard_completed_days": {
+          "type": "integer",
+          "default": 14,
+          "minimum": 1,
+          "description": "Dashboard Completed-window size in days. Plans with `completed:` frontmatter within this window AND issues with `closedAt` within this window render in the new Completed sub-column beneath the Plans / Issues panels. Default 14. Widen for low-velocity repos to surface a longer history; narrow for high-velocity repos to keep the sub-column scannable."
+        },
+        "dashboard_completed_limit": {
+          "type": "integer",
+          "default": 500,
+          "minimum": 1,
+          "description": "Maximum number of closed issues fetched per snapshot for the dashboard Completed sub-column. The bounded `gh issue list --state closed --search 'closed:>=YYYY-MM-DD' --limit $LIMIT` call caps wire-transfer + render cost regardless of window size. Default 500 (empirically anchored: this repo had 150 closed issues in a 14-day window 2026-05-22; original 100-limit silently truncated 50). Raise on high-velocity repos to avoid truncation; the dashboard surfaces a banner via `snapshot.flags.closed_issues_truncated` when the fetch saturates the limit."
+        }
+      }
+    },
+    "commit": {
+      "type": "object",
+      "description": "Commit metadata written by agent-authored commits.",
+      "properties": {
+        "co_author": {
+          "type": "string",
+          "description": "Co-Authored-By trailer line written by /commit when an agent authored the change.",
+          "default": "Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "PROJECT-ONLY per-check enforcement toggles (ENFORCEMENT_V2_PLAN, #1159). Each group has an optional boolean `enabled` ceiling (false turns the whole group off; config_hooks_tamper is EXEMPT — a group-ceiling write cannot silently disarm the tamper gate) plus per-check tristate values `\"block\" | \"warn\" | \"off\"`. There is NO literal default value for any check: defaults are CLASS-DERIVED (absence semantics), which is why no `hooks` block is seeded into zskills-defaults.json — adding literal defaults would freeze the predicate-driven behavior. For a HARD check the unset default is block-always. For a DEMOTABLE check the unset default is block-when-autonomous/unwatched and SILENT-when-watched (the zero-config quiet headline) — except main_protection.config_hooks_tamper, whose unset watched default is `warn` (the protection system disarming itself must be visible). Setting `\"warn\"` is the OPT-IN coaching value (restores warn-when-watched on a demotable check); `\"block\"` makes a demotable check strict (deny even when watched); `\"off\"` silences it entirely. Explicit values are always honored — including for hard checks (a reviewed project decision). Toggle reads are MAIN-ROOT-ONLY; worktree-local config copies are never consulted. Example: { \"git_discipline\": { \"git_add_all\": \"off\", \"tests_not_run\": \"block\" }, \"main_protection\": { \"enabled\": true, \"main_edit\": \"warn\" }, \"tracking\": { \"enabled\": false } }",
+      "properties": {
+        "git_destructive": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Hard checks: irreversible git data-loss commands.",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Group ceiling. false turns every check in this group off." },
+            "stash_drop": { "enum": ["block", "warn", "off"] },
+            "stash_write": { "enum": ["block", "warn", "off"] },
+            "checkout_discard": { "enum": ["block", "warn", "off"] },
+            "restore_discard": { "enum": ["block", "warn", "off"] },
+            "switch_discard": { "enum": ["block", "warn", "off"] },
+            "clean_force": { "enum": ["block", "warn", "off"] },
+            "reset_hard": { "enum": ["block", "warn", "off"] }
+          }
+        },
+        "fs_destructive": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Hard checks: irreversible filesystem data-loss commands.",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Group ceiling. false turns every check in this group off." },
+            "rm_recursive": { "enum": ["block", "warn", "off"] },
+            "find_delete": { "enum": ["block", "warn", "off"] },
+            "rsync_delete": { "enum": ["block", "warn", "off"] },
+            "xargs_destructive": { "enum": ["block", "warn", "off"] },
+            "zskills_tree_delete": { "enum": ["block", "warn", "off"] },
+            "clear_tracking_agent": { "enum": ["block", "warn", "off"] }
+          }
+        },
+        "process_kill": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Hard checks: process-kill commands that can disrupt container-critical processes or other sessions.",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Group ceiling. false turns every check in this group off." },
+            "kill_9": { "enum": ["block", "warn", "off"] },
+            "fuser_k": { "enum": ["block", "warn", "off"] },
+            "xargs_kill": { "enum": ["block", "warn", "off"] },
+            "kill_substitution": { "enum": ["block", "warn", "off"] }
+          }
+        },
+        "git_discipline": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Mixed: git/commit discipline checks. Some demotable (git_add_all, logs_add_all, test_pipe, full_cmd_unset, tests_not_run, ui_unverified), some hard (no_verify, stale_skill_version).",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Group ceiling. false turns every check in this group off." },
+            "git_add_all": { "enum": ["block", "warn", "off"] },
+            "no_verify": { "enum": ["block", "warn", "off"] },
+            "logs_add_all": { "enum": ["block", "warn", "off"] },
+            "test_pipe": { "enum": ["block", "warn", "off"] },
+            "full_cmd_unset": { "enum": ["block", "warn", "off"] },
+            "tests_not_run": { "enum": ["block", "warn", "off"] },
+            "ui_unverified": { "enum": ["block", "warn", "off"] },
+            "stale_skill_version": { "enum": ["block", "warn", "off"] }
+          }
+        },
+        "main_protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Demotable: on-main write gates (commit/cherry-pick/push/Edit/Write) + the config-tamper gate. main_protected:true blocks AUTONOMOUS/unwatched direct-to-main; attended/watched humans are unrestricted and silent regardless of main_protected. config_hooks_tamper is the one demotable check that WARNS-when-watched by default (not silent) and is EXEMPT from this group's enabled ceiling.",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Group ceiling. false turns every check in this group off EXCEPT config_hooks_tamper (ceiling-exempt self-protection)." },
+            "push_to_main": { "enum": ["block", "warn", "off"] },
+            "commit_on_main": { "enum": ["block", "warn", "off"] },
+            "cherry_pick_on_main": { "enum": ["block", "warn", "off"] },
+            "main_edit": { "enum": ["block", "warn", "off"] },
+            "config_hooks_tamper": { "enum": ["block", "warn", "off"] }
+          }
+        },
+        "pr_discipline": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Hard check: direct gh pr create/merge bypassing /land-pr.",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Group ceiling. false turns every check in this group off." },
+            "direct_gh_pr": { "enum": ["block", "warn", "off"] }
+          }
+        },
+        "tracking": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Mostly demotable: pipeline tracking-discipline gates (requires/step markers, claim gates). cron_invalid is hard (a warned-through malformed cron silently never fires).",
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Group ceiling. false turns every check in this group off." },
+            "requires_unfulfilled": { "enum": ["block", "warn", "off"] },
+            "step_unverified": { "enum": ["block", "warn", "off"] },
+            "step_unreported": { "enum": ["block", "warn", "off"] },
+            "issue_unclaimed": { "enum": ["block", "warn", "off"] },
+            "plan_unclaimed": { "enum": ["block", "warn", "off"] },
+            "cron_invalid": { "enum": ["block", "warn", "off"] }
+          }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "description": "Per-project cleanup configuration for /cleanup-merged.",
+      "properties": {
+        "long_running_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "DEPRECATED: Replaced by protected_branches. Branch-name glob patterns that /cleanup-merged treats as KEEP regardless of merge / push state. Empty by default. Matched via bash glob semantics (NOT regex).",
+          "examples": [["docs/run-order-guide", "release/*"]]
+        },
+        "protected_branches": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Branch names that /cleanup-merged should never delete. Preview marks these as PROTECTED (config) and apply skips them automatically. Exact match (not glob).",
+          "examples": [["docs/run-order-guide"]]
+        }
+      }
+    },
+    "testing": {
+      "type": "object",
+      "description": "Test commands and patterns.",
+      "properties": {
+        "unit_cmd": {
+          "type": "string",
+          "description": "Command to run unit tests. Example: npm run test"
+        },
+        "full_cmd": {
+          "type": "string",
+          "description": "Command to run all tests (unit + integration + E2E). Example: npm run test:all"
+        },
+        "output_file": {
+          "type": "string",
+          "default": ".test-results.txt",
+          "description": "File where test output is captured."
+        },
+        "file_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for test files. Example: ['tests/**/*.test.js']"
+        }
+      }
+    },
+    "dev_server": {
+      "type": "object",
+      "description": "Development server configuration for manual testing.",
+      "properties": {
+        "cmd": {
+          "type": "string",
+          "description": "Command to start the dev server. Example: npm start"
+        },
+        "default_port": {
+          "type": "integer",
+          "default": 8080,
+          "description": "Default dev server port for the main repo; worktrees get a hash-derived port in 9000-60000."
+        },
+        "main_repo_path": {
+          "type": "string",
+          "description": "Absolute path to the main repo. Used by worktree agents to find the dev server."
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "description": "UI verification configuration.",
+      "properties": {
+        "file_patterns": {
+          "type": "string",
+          "description": "Regex pattern matching UI files. When these files change, manual verification is required. Example: src/(components|ui)/.*\\.tsx?$"
+        },
+        "auth_bypass": {
+          "type": "string",
+          "description": "JavaScript to execute for auth bypass during manual testing. Example: localStorage.setItem('token', 'test')"
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "description": "Session-logging configuration for the Stop / SubagentStop / PermissionRequest hooks (hooks/log-session-stop.sh, hooks/log-permission-request.sh).",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Master toggle for session logging. Default false — session logging is OFF unless the consumer opts in. When true, the Stop/SubagentStop hook re-renders each session transcript to per-session markdown and the PermissionRequest hook appends a per-session permission sidecar. When false or absent, BOTH hooks no-op immediately (exit 0, no files written)."
+        },
+        "dir": {
+          "type": "string",
+          "default": "",
+          "description": "Override BASE directory for session logs. Composition precedence used by both hooks AND skills/update-zskills/scripts/session-logs.sh: ZSKILLS_LOG_DIR env > logging.dir (this field) > the per-OS cache base (Linux ${XDG_CACHE_HOME:-~/.cache}/zskills-session-logs, macOS ~/Library/Caches/zskills-session-logs, Windows %LOCALAPPDATA%\\zskills-session-logs). The resolved base is then composed with the optional <repo>/<user> segments (see include_repo / include_user). Empty (default) falls through to the per-OS cache base."
+        },
+        "include_repo": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true (default), append a sanitized <repo> segment (the project-dir basename) to the resolved base, so a shared mount keeps each repo's logs in its own subdirectory: <base>/<repo>/... With the default cache base this preserves today's exact path. Set false to write flat to <base>/..."
+        },
+        "include_user": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, append a sanitized <user> segment after the <repo> segment: <base>/[<repo>]/<user>/... The user identity is resolved at RUNTIME (never stored in the committed config): ZSKILLS_LOG_USER env > git config user.email > getpass.getuser() > 'unknown'. Useful on a shared mount written by multiple developers."
+        },
+        "file_mode": {
+          "type": "string",
+          "default": "0600",
+          "description": "POSIX octal mode for created log files + permission sidecars (default 0600, owner-only — logs may contain credentials a user cat-ed, so relaxing this is an explicit per-deployment opt-in). The directory mode is DERIVED by adding a search/exec bit to every read/write triad (0660->0770, 0640->0750, 0600->0700). POSIX-only: on Windows this is a no-op (os.umask is effectively a no-op; NTFS/SMB use ACLs). zskills sets mode bits only; group ownership/inheritance is the admin's job (chgrp -R <group> <dir> && chmod -R g+rws <dir>). The local registry stays 0600 regardless."
+        }
+      }
+    },
+    "ci": {
+      "type": "object",
+      "description": "CI integration for PR mode. Controls whether the agent polls CI checks and attempts to fix failures.",
+      "properties": {
+        "auto_fix": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, poll CI checks after PR creation and attempt to fix failures. When false, create PR and report URL without waiting. Set to false for slow CI (30+ min) or repos without CI."
+        },
+        "max_fix_attempts": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Maximum fix-and-push cycles when CI fails. 0 = poll and report only (no fix attempts). Each attempt comments on the PR with failure context."
+        }
+      }
+    },
+    "agents": {
+      "type": "object",
+      "description": "Agent dispatch configuration.",
+      "properties": {
+        "min_model": {
+          "type": "string",
+          "default": "auto",
+          "description": "Minimum model for subagent dispatch, enforced by the block-agents.sh hook. Accepts either a literal model string (e.g., 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5') or the sentinel 'auto' / 'inherit' which resolves at dispatch time to the current session's model (from the transcript). Recommended: 'auto' — your session's model becomes the floor automatically, so subagents can never silently downgrade. Ordinal comparison: haiku=1 < sonnet=2 < opus=3; unknown model families pass (future-proofing for new Claude releases).",
+          "examples": ["auto", "claude-opus-4-6", "claude-sonnet-4-6"]
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Output-path overrides for zskills-managed files. Distinct from `testing.output_file` (which configures test-result capture). Absent keys fall back to legacy `plans/` (NOT to the documented defaults). Set explicitly via /update-zskills --migrate-paths.",
+      "properties": {
+        "plans_dir": {
+          "type": "string",
+          "description": "Directory for Tier-1 user-curated plans (<NAME>_PLAN.md). Documented default: docs/plans. Absent → legacy plans/. Resolved as: absolute (starts with /) used as-is; everything else joined with project root. Distinct from testing.output_file. Note: PLAN_INDEX.md is regenerated and lives in .zskills/audit/ (Tier 2), not in plans_dir."
+        },
+        "issues_dir": {
+          "type": "string",
+          "description": "Directory for issue trackers (ISSUES_PLAN.md, BUILD_ISSUES.md, DOC_ISSUES.md, QE_ISSUES.md). Documented default: docs/issues. Absent → legacy plans/. Same resolution rules as plans_dir. Distinct from testing.output_file."
+        },
+        "reports_dir": {
+          "type": "string",
+          "description": "Directory for agent-written work-trail reports: /run-plan plan-{slug}.md, /verify-changes verify-{name}.md, /fix-issues SPRINT_REPORT.md. Documented default: docs/reports. Absent → legacy .zskills/audit (silent back-compat for pre-migration consumers). Same resolution rules as plans_dir/issues_dir. Distinct from $ZSKILLS_AUDIT_DIR (briefing daily files, work-on-plans state, debug dumps — still hardcoded at .zskills/audit and gitignored)."
+        }
+      }
+    }
+  }
+}
