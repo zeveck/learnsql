@@ -1,7 +1,7 @@
 ---
 title: Anime SQL Academy — Interactive Client-Side SQL Learning Site
 created: 2026-06-19
-status: active
+status: complete
 ---
 
 # Plan: Anime SQL Academy
