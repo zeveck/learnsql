@@ -16,6 +16,10 @@ import lesson05 from '../lessons/lesson-05-aggregates.js';
 import lesson06 from '../lessons/lesson-06-group-by-having.js';
 import lesson07 from '../lessons/lesson-07-inner-join.js';
 import lesson08 from '../lessons/lesson-08-left-join.js';
+import lesson09 from '../lessons/lesson-09-full-cross-join.js';
+import lesson10 from '../lessons/lesson-10-self-join.js';
+import lesson11 from '../lessons/lesson-11-multi-join.js';
+import lesson12 from '../lessons/lesson-12-join-aggregation.js';
 
 /** All registered lesson modules (unsorted). */
 const LESSON_MODULES = [
@@ -27,6 +31,10 @@ const LESSON_MODULES = [
   lesson06,
   lesson07,
   lesson08,
+  lesson09,
+  lesson10,
+  lesson11,
+  lesson12,
 ];
 
 /** Lessons sorted by ascending id (the play order + gating order). */
