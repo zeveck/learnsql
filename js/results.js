@@ -73,9 +73,9 @@ export function unmatchedRowFlags(result, columnTables, rightTables) {
 
 /** Stable color palette keyed by source-table name (for header coloring). */
 const TABLE_COLORS = [
-  '#ff5c8a', '#5cc8ff', '#9eff6b', '#ffd45c', '#c98aff',
-  '#ff9e5c', '#6bffd4', '#ff6bb5', '#8a9eff', '#b5ff6b',
-  '#ffb55c', '#6bd4ff', '#d46bff', '#5cffa0',
+  '#a78bfa', '#5cc8ff', '#9eff6b', '#ffd45c', '#c98aff',
+  '#ff9e5c', '#6bffd4', '#d46bff', '#8a9eff', '#b5ff6b',
+  '#ffb55c', '#6bd4ff', '#b388ff', '#5cffa0',
 ];
 
 /** Deterministically assign a color to each distinct table name. */

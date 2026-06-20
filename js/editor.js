@@ -71,8 +71,8 @@ export function createEditor(parent, options = {}) {
         {
           // 16px content avoids iOS focus-zoom (Safari zooms inputs < 16px).
           '&': { backgroundColor: '#11122a', color: '#e8e8f0', height: '100%', fontSize: '16px' },
-          '.cm-content': { caretColor: '#ff5c8a', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
-          '.cm-cursor': { borderLeftColor: '#ff5c8a' },
+          '.cm-content': { caretColor: '#a78bfa', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
+          '.cm-cursor': { borderLeftColor: '#a78bfa' },
           '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.04)' },
           '.cm-gutters': { backgroundColor: '#11122a', color: '#6a6b90', border: 'none' },
           '.cm-tooltip': { backgroundColor: '#1b1c33', border: '1px solid #33345a' },
