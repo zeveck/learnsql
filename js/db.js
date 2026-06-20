@@ -125,14 +125,22 @@ function hasIndexedDB() {
   return typeof globalThis !== 'undefined' && !!globalThis.indexedDB;
 }
 
-/** Open (creating if needed) the sandbox IndexedDB. */
+/** Open (creating if needed) the sandbox IndexedDB.
+ *
+ * The DB version is shared with js/score.js (which adds a 'progress' store at
+ * version 2). Both modules MUST open the same name at the same version and each
+ * create any store it is missing in onupgradeneeded — otherwise the second
+ * opener throws a VersionError. */
 function openSandboxDB() {
   return new Promise((resolve, reject) => {
-    const req = globalThis.indexedDB.open(IDB_NAME, 1);
+    const req = globalThis.indexedDB.open(IDB_NAME, 2);
     req.onupgradeneeded = () => {
       const idb = req.result;
       if (!idb.objectStoreNames.contains(IDB_STORE)) {
         idb.createObjectStore(IDB_STORE);
+      }
+      if (!idb.objectStoreNames.contains('progress')) {
+        idb.createObjectStore('progress');
       }
     };
     req.onsuccess = () => resolve(req.result);

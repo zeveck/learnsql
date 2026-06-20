@@ -8,7 +8,8 @@ import { test, expect } from '@playwright/test';
 // Mod-Enter binding).
 
 async function gotoReady(page) {
-  await page.goto('/');
+  // The lesson map is the default route now; Explore lives at #/explore.
+  await page.goto('/#/explore');
   // Engine ready flips a data attribute on #status.
   await expect(page.locator('#status')).toHaveAttribute('data-ready', 'true', { timeout: 20000 });
   // The CodeMirror editor mounted.

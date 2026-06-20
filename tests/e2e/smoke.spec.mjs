@@ -21,7 +21,9 @@ test('workbench smoke: loads sql.js + vendored CodeMirror, runs a query, no cons
     if (resp.url().endsWith('/vendor/codemirror.bundle.js')) cmBundleFetched = true;
   });
 
-  await page.goto('/');
+  // The lesson map is the default route; the Explore workbench (with the editor
+  // + run button this smoke checks) lives at #/explore.
+  await page.goto('/#/explore');
 
   // Engine ready + editor mounted.
   await expect(page.locator('#status')).toHaveAttribute('data-ready', 'true', { timeout: 20000 });

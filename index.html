@@ -19,28 +19,47 @@
 </head>
 <body>
   <header>
-    <h1>Anime SQL Academy</h1>
-    <p class="tagline">Explore mode &mdash; free-form anime SQL sandbox</p>
+    <div class="brand">
+      <h1>Anime SQL Academy</h1>
+      <p class="tagline">Learn SQL &mdash; with a heavy dose of JOINs &mdash; on an anime database.</p>
+    </div>
+    <nav class="topnav">
+      <a id="nav-lessons" href="#/" class="nav-link active">Lessons</a>
+      <a id="nav-explore" href="#/explore" class="nav-link">Explore</a>
+    </nav>
   </header>
+
+  <div id="status" class="status">Loading SQL engine&hellip;</div>
+
   <main class="workbench">
     <aside id="schema-panel" class="panel schema-panel" aria-label="Database schema"></aside>
+
     <section class="workspace">
-      <div id="status" class="status">Loading SQL engine&hellip;</div>
-      <div class="editor-wrap">
-        <div id="editor" class="editor" aria-label="SQL editor"></div>
+      <!-- Lesson map / home (default route) -->
+      <div id="view-map" class="view"></div>
+
+      <!-- Lesson runner -->
+      <div id="view-lesson" class="view hidden"></div>
+
+      <!-- Explore (free-form sandbox) -->
+      <div id="view-explore" class="view hidden">
+        <div class="editor-wrap">
+          <div id="editor" class="editor" aria-label="SQL editor"></div>
+        </div>
+        <div class="toolbar">
+          <button id="run-btn" type="button" class="btn btn-primary">Run &#9654;</button>
+          <button id="reset-btn" type="button" class="btn">Reset database</button>
+          <label class="persist">
+            <input id="persist-toggle" type="checkbox">
+            Persist my changes
+          </label>
+          <span class="hint">Ctrl/Cmd+Enter to run</span>
+        </div>
+        <div id="result" class="result"></div>
       </div>
-      <div class="toolbar">
-        <button id="run-btn" type="button" class="btn btn-primary">Run &#9654;</button>
-        <button id="reset-btn" type="button" class="btn">Reset database</button>
-        <label class="persist">
-          <input id="persist-toggle" type="checkbox">
-          Persist my changes
-        </label>
-        <span class="hint">Ctrl/Cmd+Enter to run</span>
-      </div>
-      <div id="result" class="result"></div>
     </section>
   </main>
+
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>
