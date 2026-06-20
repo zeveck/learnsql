@@ -69,7 +69,8 @@ export function createEditor(parent, options = {}) {
       EditorView.lineWrapping,
       EditorView.theme(
         {
-          '&': { backgroundColor: '#11122a', color: '#e8e8f0', height: '100%' },
+          // 16px content avoids iOS focus-zoom (Safari zooms inputs < 16px).
+          '&': { backgroundColor: '#11122a', color: '#e8e8f0', height: '100%', fontSize: '16px' },
           '.cm-content': { caretColor: '#ff5c8a', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
           '.cm-cursor': { borderLeftColor: '#ff5c8a' },
           '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.04)' },

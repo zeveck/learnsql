@@ -23,16 +23,21 @@
       <h1>Anime SQL Academy</h1>
       <p class="tagline">Learn SQL &mdash; with a heavy dose of JOINs &mdash; on an anime database.</p>
     </div>
-    <nav class="topnav">
+    <nav class="topnav" aria-label="Primary">
       <a id="nav-lessons" href="#/" class="nav-link active">Lessons</a>
       <a id="nav-explore" href="#/explore" class="nav-link">Explore</a>
+      <a id="nav-profile" href="#/profile" class="nav-link">Profile</a>
     </nav>
   </header>
 
-  <div id="status" class="status">Loading SQL engine&hellip;</div>
+  <div id="status" class="status" role="status" aria-live="polite">Loading SQL engine&hellip;</div>
 
   <main class="workbench">
-    <aside id="schema-panel" class="panel schema-panel" aria-label="Database schema"></aside>
+    <aside id="schema-panel-host" class="panel schema-panel" aria-label="Database schema">
+      <button id="schema-toggle" type="button" class="schema-toggle" aria-expanded="true"
+              aria-controls="schema-panel">Schema &#9662;</button>
+      <div id="schema-panel"></div>
+    </aside>
 
     <section class="workspace">
       <!-- Lesson map / home (default route) -->
@@ -41,21 +46,24 @@
       <!-- Lesson runner -->
       <div id="view-lesson" class="view hidden"></div>
 
+      <!-- Profile / achievements -->
+      <div id="view-profile" class="view hidden"></div>
+
       <!-- Explore (free-form sandbox) -->
       <div id="view-explore" class="view hidden">
         <div class="editor-wrap">
-          <div id="editor" class="editor" aria-label="SQL editor"></div>
+          <div id="editor" class="editor" role="textbox" aria-multiline="true" aria-label="SQL editor"></div>
         </div>
-        <div class="toolbar">
-          <button id="run-btn" type="button" class="btn btn-primary">Run &#9654;</button>
-          <button id="reset-btn" type="button" class="btn">Reset database</button>
+        <div class="toolbar" role="toolbar" aria-label="Query controls">
+          <button id="run-btn" type="button" class="btn btn-primary" aria-label="Run query">Run &#9654;</button>
+          <button id="reset-btn" type="button" class="btn" aria-label="Reset database to its seeded state">Reset database</button>
           <label class="persist">
             <input id="persist-toggle" type="checkbox">
             Persist my changes
           </label>
           <span class="hint">Ctrl/Cmd+Enter to run</span>
         </div>
-        <div id="result" class="result"></div>
+        <div id="result" class="result" role="region" aria-label="Query results" aria-live="polite"></div>
       </div>
     </section>
   </main>

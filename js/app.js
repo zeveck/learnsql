@@ -32,18 +32,24 @@ import {
   resetProgress,
   exerciseKey,
   levelDetail,
+  emptyProgress,
 } from './score.js';
+import { renderProfile } from './profile.js';
 
 const EXPLORE_STARTER = "SELECT name, role FROM characters WHERE role='villain';";
 
 async function main() {
   const statusEl = document.getElementById('status');
   const schemaHost = document.getElementById('schema-panel');
+  const schemaHostWrap = document.getElementById('schema-panel-host');
+  const schemaToggle = document.getElementById('schema-toggle');
   const viewExplore = document.getElementById('view-explore');
   const viewMap = document.getElementById('view-map');
   const viewLesson = document.getElementById('view-lesson');
+  const viewProfile = document.getElementById('view-profile');
   const navLessons = document.getElementById('nav-lessons');
   const navExplore = document.getElementById('nav-explore');
+  const navProfile = document.getElementById('nav-profile');
 
   let SQL;
   let progress;
@@ -73,6 +79,50 @@ async function main() {
   const getProgress = () => progress;
   const setProgress = (p) => {
     progress = p;
+  };
+
+  // Schema panel collapse toggle (chiefly for narrow viewports; works anywhere).
+  if (schemaToggle && schemaHostWrap) {
+    schemaToggle.addEventListener('click', () => {
+      const collapsed = schemaHostWrap.classList.toggle('collapsed');
+      schemaToggle.setAttribute('aria-expanded', String(!collapsed));
+    });
+  }
+
+  // --- Test seed hook -----------------------------------------------------
+  // E2E specs (capstone / full-curriculum) need to reach a gated state WITHOUT
+  // replaying 15 lessons. This hook persists a caller-supplied progress object
+  // and refreshes the live state — it does NOT touch the gating logic itself
+  // (it only writes the SAME solvedExercises map the runner would have written),
+  // so the gate is exercised honestly against seeded "solved" data.
+  globalThis.__animeSqlAcademy = {
+    async seedProgress(partial) {
+      const next = { ...emptyProgress(), ...(partial || {}) };
+      await saveProgress(next);
+      progress = next;
+      return next;
+    },
+    /**
+     * Convenience seeder for the gated E2E flows: mark every BRONZE exercise of
+     * lessons whose id <= maxLessonId as solved (the exact solvedExercises map
+     * the runner would have written by playing those bronzes), then persist.
+     * It writes nothing the gate doesn't read, so the gate stays honest.
+     */
+    async seedBronzeThrough(maxLessonId) {
+      const solvedExercises = {};
+      for (const lesson of LESSONS) {
+        if (lesson.id > maxLessonId) continue;
+        (lesson.exercises || []).forEach((ex, i) => {
+          if (ex.tier === 'bronze') solvedExercises[exerciseKey(lesson.id, i)] = true;
+        });
+      }
+      const next = { ...emptyProgress(), solvedExercises, lastActiveDate: new Date().toISOString().slice(0, 10) };
+      await saveProgress(next);
+      progress = next;
+      return next;
+    },
+    getProgress: () => progress,
+    exerciseKey,
   };
 
   // --- Lesson runner ------------------------------------------------------
@@ -168,32 +218,52 @@ async function main() {
       })
       .join('');
 
+    const started = Object.keys(progress.solvedExercises || {}).length > 0;
+
     viewMap.innerHTML = `
+      <section class="hero" aria-label="Welcome">
+        <h2 class="hero-title">Master SQL JOINs with anime &#9889;</h2>
+        <p class="hero-line">Write real SQL against a nine-series anime database, watch the rows
+          light up, and level up from Academy Student to SQL Hokage &mdash; one JOIN at a time.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" id="hero-start" href="#/lesson/1">${started ? 'Keep learning' : 'Start learning'} &rarr;</a>
+          <a class="btn" id="hero-explore" href="#/explore">Free Explore &#9654;</a>
+          <a class="btn" id="hero-profile" href="#/profile">Your dossier</a>
+        </div>
+        <p class="hero-note">Built completely client-side &mdash; no backend, no build step. SQL runs
+          in your browser via sql.js (SQLite in WebAssembly). The whole site is plain HTML, CSS, and
+          ES modules served straight from the repo, so
+          <a href="./js/app.js" class="source-link" id="view-source">you can read the source right here</a>
+          &mdash; the build-free code is part of the lesson. Use the browser dev tools to peek at any
+          <code>js/</code> module or the <code>lessons/</code> data.</p>
+      </section>
+
       <div class="map-header">
         <div>
           <h2>Lesson Map</h2>
-          <p class="tagline">Clear each lesson's Bronze to unlock the next.</p>
+          <p class="tagline">Clear each lesson's Bronze to unlock the next. Gold is optional bragging rights.</p>
         </div>
         <div class="map-stats">
           <div class="stat-big">${escapeHtml(ld.level)}</div>
           <div class="stat-sub">${progress.xp} XP${ld.next ? ` &middot; ${Math.round(ld.progress * 100)}% to ${escapeHtml(ld.next)}` : ' &middot; max level'}</div>
           <div class="stat-sub">🔥 ${progress.streak}-day streak &middot; ❄️ ${progress.freezes} freeze(s)</div>
           <div class="stat-sub">🏅 ${(progress.badges || []).length} badge(s)</div>
-          <button type="button" id="reset-progress" class="btn btn-small">Reset progress</button>
+          <a class="btn btn-small" href="#/profile">View dossier &amp; badges</a>
         </div>
       </div>
       <div class="lesson-grid">${cards}</div>
     `;
+  }
 
-    const rp = viewMap.querySelector('#reset-progress');
-    if (rp) {
-      rp.addEventListener('click', async () => {
-        const ok = globalThis.confirm ? globalThis.confirm('Reset all XP, badges, and lesson progress?') : true;
-        if (!ok) return;
+  // --- Profile ------------------------------------------------------------
+  function renderProfileView() {
+    renderProfile(viewProfile, {
+      getProgress,
+      onReset: async () => {
         progress = await resetProgress();
-        renderMap();
-      });
-    }
+        renderProfileView();
+      },
+    });
   }
 
   // --- Routing ------------------------------------------------------------
@@ -202,22 +272,30 @@ async function main() {
     const m = h.match(/^#\/lesson\/(\d+)/);
     if (m) return { name: 'lesson', id: Number(m[1]) };
     if (h.startsWith('#/explore')) return { name: 'explore' };
+    if (h.startsWith('#/profile')) return { name: 'profile' };
     return { name: 'map' };
   }
 
   function show(el) {
-    [viewExplore, viewMap, viewLesson].forEach((v) => v.classList.toggle('hidden', v !== el));
+    [viewExplore, viewMap, viewLesson, viewProfile].forEach((v) => v.classList.toggle('hidden', v !== el));
   }
 
   async function route() {
     const r = currentRoute();
-    navLessons.classList.toggle('active', r.name !== 'explore');
+    navLessons.classList.toggle('active', r.name === 'map' || r.name === 'lesson');
     navExplore.classList.toggle('active', r.name === 'explore');
+    navProfile.classList.toggle('active', r.name === 'profile');
 
     if (r.name === 'explore') {
       show(viewExplore);
       await initExplore();
       schemaPanel.highlightTables([]);
+      return;
+    }
+    if (r.name === 'profile') {
+      show(viewProfile);
+      schemaPanel.highlightTables([]);
+      renderProfileView();
       return;
     }
     if (r.name === 'lesson') {
@@ -243,6 +321,10 @@ async function main() {
   navExplore.addEventListener('click', (e) => {
     e.preventDefault();
     location.hash = '#/explore';
+  });
+  navProfile.addEventListener('click', (e) => {
+    e.preventDefault();
+    location.hash = '#/profile';
   });
 
   window.addEventListener('hashchange', () => route());

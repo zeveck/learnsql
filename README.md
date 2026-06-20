@@ -5,8 +5,9 @@ using an anime-themed mock SQLite database. Learners write real SQL in the brows
 live results, and work through a tiered lesson curriculum. Served as a static site via
 GitHub Pages at **`sql.synapticnoise.com`**.
 
-This repository is at **Phase 1**: the static-site skeleton, dev-only tooling, and a sql.js
-engine smoke test that runs in both the browser and headless Node.
+The full curriculum (15 lessons + a capstone mystery), the scoring/progression system, a
+profile/achievements screen, and a free-form Explore sandbox are all live. The site is
+mobile-friendly and keyboard/screen-reader accessible.
 
 ## Architecture
 
@@ -43,16 +44,26 @@ HTML-escaped** before insertion.
 
 ```
 index.html             entry page (loads vendor/sql-wasm.js, then js/app.js)
-css/styles.css         styles
-js/db.js               initEngine() — reads globalThis.initSqlJs
-js/app.js              smoke: build a table, run a SELECT, render it
+css/styles.css         styles (incl. responsive + a11y focus states)
+js/app.js              app shell + hash routing (map / lesson / explore / profile)
+js/db.js               initEngine(), freshDb, runQuery, sandbox persistence
+js/editor.js           CodeMirror 6 editor wrapper (vendored bundle)
+js/results.js          result renderer (NULL badges, JOIN coloring + legend)
+js/schema-panel.js     schema/relationship panel (click-to-insert)
+js/lessons.js          lesson loader + gating helpers
+js/lesson-runner.js    lesson UI (concept, editor, Run/Check, hints, scoring)
+js/validate.js         answer validator (result-set + DML verifySql)
+js/score.js            XP / levels / streaks / badges + progress persistence
+js/profile.js          profile/achievements screen + capstone score screen
+js/hints.js            progressive priced hints
+js/errors.js           friendly SQL error messages
 assets/favicon.svg     favicon (referenced relatively; no 404)
-vendor/                committed runtime assets (sql.js 1.14.1) — ARE served
-data/                  database schema/seed (later phases)
-lessons/               lesson content (later phases)
+vendor/                committed runtime assets (sql.js 1.14.1, CodeMirror bundle)
+data/schema.js         database schema/seed + SCHEMA/RELATIONSHIPS metadata
+lessons/               lesson content (15 lessons + capstone)
 tests/                 Node logic tests + Playwright e2e
 scripts/test-all.sh    full test command
-tools/                 one-time dev-tooling scripts (later phases)
+tools/                 one-time dev-tooling scripts (CodeMirror vendoring)
 CNAME / .nojekyll      GitHub Pages config
 ```
 
@@ -98,6 +109,45 @@ the single tolerated runtime CDN. The vendored bundle is the primary, committed 
 - **End-to-end (Playwright / Chromium only):** `npx playwright test` — a `webServer` block
   launches `python3 -m http.server` as the static preview.
 - **Full test command:** `bash scripts/test-all.sh` (runs the Node tests, then Playwright).
+
+The E2E suite covers the workbench smoke test, Explore mode, the lesson runner, the capstone
+gating + scoring, a full-curriculum gating/scoring/persistence smoke, accessibility (accessible
+names, tab order, non-color NULL/legend signals), and a mobile-viewport pass.
+
+### Manual cross-browser checklist (Firefox / WebKit)
+
+The gating CI run is **Chromium-only** because Chromium is the only browser installed in this
+dev environment (`.devcontainer/setup.sh` installs Chromium). `scripts/test-all.sh` therefore
+runs Playwright against Chromium only and **does not** depend on Firefox/WebKit being present.
+
+To do a manual cross-browser pass, a developer first installs the extra browsers, then runs the
+suite against them explicitly (these commands are NOT part of `test-all.sh`):
+
+```sh
+npx playwright install firefox webkit
+npx playwright test --project=chromium            # the gating default
+npx playwright test --browser=firefox             # manual
+npx playwright test --browser=webkit              # manual (Safari engine)
+```
+
+Manually verify in **Firefox** and **WebKit/Safari**:
+
+- [ ] The SQL engine loads (sql.js WASM) and a query renders a result table.
+- [ ] The CodeMirror editor mounts, accepts input, and `Ctrl/Cmd+Enter` runs the query.
+- [ ] Lesson flow: open a lesson, type an answer, Check → verdict; gating unlocks the next lesson.
+- [ ] The capstone unlocks after lesson 15 and its score screen shows on solve.
+- [ ] The profile screen renders XP, level, streak, and the earned/locked badge grid.
+- [ ] **Mobile / responsive** (use the browser's responsive design mode): the editor font is
+      ≥16px (no focus-zoom on iOS Safari), result tables scroll horizontally, the schema panel
+      collapses behind its toggle, and the lesson flow is usable.
+- [ ] **Accessibility:** keyboard-only navigation reaches the editor and Run/Check/Hint controls;
+      focus outlines are visible; NULL cells show the literal text "NULL"; the JOIN legend names
+      its source tables as text.
+
+**Safari import-map caveat (moot here):** ES-module import maps require Safari ≥16.4. This site
+does **not** use an import map — CodeMirror is shipped as a single committed `vendor/`
+bundle — so the caveat does not apply. (It would only matter under the documented, unused
+esm.sh import-map fallback.)
 
 ## Accepted exposure (root serving)
 

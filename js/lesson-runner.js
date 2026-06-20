@@ -28,6 +28,7 @@ import {
   lessonComplete,
   lessonBronzeCleared,
 } from './lessons.js';
+import { capstoneScoreScreen } from './profile.js';
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -152,18 +153,18 @@ export function createLessonRunner(cfg) {
           </div>
           <div class="exercise-prompt">${ex.prompt}</div>
 
-          <div class="editor-wrap"><div id="lesson-editor" class="editor" aria-label="SQL editor"></div></div>
+          <div class="editor-wrap"><div id="lesson-editor" class="editor" role="textbox" aria-multiline="true" aria-label="SQL answer editor"></div></div>
 
-          <div class="toolbar">
-            <button id="lesson-run" type="button" class="btn">Run &#9654;</button>
-            <button id="lesson-check" type="button" class="btn btn-primary">Check answer</button>
-            <button id="lesson-hint" type="button" class="btn btn-hint">Hint</button>
+          <div class="toolbar" role="toolbar" aria-label="Exercise controls">
+            <button id="lesson-run" type="button" class="btn" aria-label="Run your query without checking it">Run &#9654;</button>
+            <button id="lesson-check" type="button" class="btn btn-primary" aria-label="Check your answer">Check answer</button>
+            <button id="lesson-hint" type="button" class="btn btn-hint" aria-label="Reveal a hint (costs XP)">Hint</button>
             <span class="hint">Ctrl/Cmd+Enter to run</span>
           </div>
 
           <div id="lesson-hints" class="lesson-hints"></div>
-          <div id="lesson-verdict" class="lesson-verdict" aria-live="polite"></div>
-          <div id="lesson-result" class="result"></div>
+          <div id="lesson-verdict" class="lesson-verdict" role="status" aria-live="polite"></div>
+          <div id="lesson-result" class="result" role="region" aria-label="Query results"></div>
         </div>
       </div>
     `;
@@ -268,6 +269,28 @@ export function createLessonRunner(cfg) {
     onProgress();
 
     verdictEl.className = 'lesson-verdict correct';
+    const nowComplete = lessonComplete(lesson, out.progress.solvedExercises, exerciseKey);
+
+    // Capstone: on completing the final accusation, show the dedicated score
+    // screen instead of the plain "next" line.
+    if ((lesson.capstone || lesson.isCapstone) && nowComplete) {
+      const culprit = (verdict.actual && verdict.actual.values && verdict.actual.values[0])
+        ? verdict.actual.values[0][0]
+        : null;
+      verdictEl.innerHTML = capstoneScoreScreen({
+        lesson,
+        xpAwarded: wasSolved ? 0 : out.xpAwarded,
+        newBadges: out.newBadges,
+        progress: out.progress,
+        culprit,
+      });
+      renderTabs();
+      const bars0 = host.querySelectorAll('.progress-bars progress');
+      if (bars0[0]) bars0[0].value = lessonProgressFraction();
+      if (bars0[1]) bars0[1].value = overallProgressFraction();
+      return;
+    }
+
     let html = `<strong>✓ Correct!</strong> ${esc(verdict.message)}`;
     if (!wasSolved && out.xpAwarded > 0) html += ` <span class="xp-gain">+${out.xpAwarded} XP</span>`;
     if (out.newBadges.length) html += `<div class="badges-earned">🏅 ${out.newBadges.map(esc).join(', ')}</div>`;
@@ -277,7 +300,7 @@ export function createLessonRunner(cfg) {
     const nextIdx = exIndex + 1;
     if (nextIdx < lesson.exercises.length) {
       html += ` <button type="button" class="btn btn-primary" id="next-exercise">Next exercise &rarr;</button>`;
-    } else if (lessonComplete(lesson, out.progress.solvedExercises, exerciseKey)) {
+    } else if (nowComplete) {
       const li = LESSONS.findIndex((l) => l.id === lesson.id);
       const next = LESSONS[li + 1];
       if (next) html += ` <button type="button" class="btn btn-primary" id="next-lesson">Next lesson: ${esc(next.title)} &rarr;</button>`;

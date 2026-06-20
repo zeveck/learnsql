@@ -183,6 +183,35 @@ export const BADGES = {
 };
 
 /**
+ * Display metadata for every badge — an emblem (also carries a text name so
+ * color/emoji is never the SOLE signal) and the unlock criterion. The profile
+ * screen renders ALL of these; locked ones are greyed with the criterion shown.
+ * Keyed by the badge's display name (the value stored in `progress.badges`).
+ */
+export const BADGE_META = {
+  [BADGES.INNER_CIRCLE]: { emblem: '⭕', criteria: 'Solve every INNER-JOIN exercise at Gold.' },
+  [BADGES.LEFT_BEHIND]: { emblem: '🫥', criteria: 'Solve the LEFT-JOIN “IS NULL” anti-join.' },
+  [BADGES.CARTOGRAPHER]: { emblem: '🗺️', criteria: 'Run your first CROSS JOIN.' },
+  [BADGES.NARCISSUS]: { emblem: '🪞', criteria: 'Solve your first SELF JOIN.' },
+  [BADGES.NO_HINTS_NEEDED]: { emblem: '🧠', criteria: 'Clear a whole lesson using zero hints.' },
+  [BADGES.FLAWLESS_VICTORY]: { emblem: '🏆', criteria: 'Solve every exercise in a lesson first-try.' },
+  [BADGES.DETECTIVE]: { emblem: '🕵️', criteria: 'Crack the capstone mystery.' },
+  [BADGES.PERFECT_RUN]: { emblem: '💎', criteria: 'Solve every exercise in the course at Gold.' },
+};
+
+/** Stable list of all badge display names, in presentation order. */
+export const ALL_BADGES = [
+  BADGES.NARCISSUS,
+  BADGES.CARTOGRAPHER,
+  BADGES.LEFT_BEHIND,
+  BADGES.INNER_CIRCLE,
+  BADGES.NO_HINTS_NEEDED,
+  BADGES.FLAWLESS_VICTORY,
+  BADGES.DETECTIVE,
+  BADGES.PERFECT_RUN,
+];
+
+/**
  * Given a solve event + the (already updated) progress, return the list of NEW
  * badge names to award. Pure: callers add returned badges that aren't present.
  *
