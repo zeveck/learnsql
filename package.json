@@ -1,5 +1,5 @@
 {
-  "name": "anime-sql-academy",
+  "name": "learnsql",
   "version": "0.1.0",
   "private": true,
   "description": "Dev-only tooling for the Anime SQL Academy static site. NEVER deployed or loaded by the site.",

@@ -3,7 +3,7 @@
 A fun, fully **client-side** website that teaches SQL — with a heavy emphasis on JOINs —
 using an anime-themed mock SQLite database. Learners write real SQL in the browser, see
 live results, and work through a tiered lesson curriculum. Served as a static site via
-GitHub Pages at **`sql.synapticnoise.com`**.
+GitHub Pages at **`learnsql.synapticnoise.com`** (repo: `zeveck/learnsql`).
 
 The full curriculum (15 lessons + a capstone mystery), the scoring/progression system, a
 profile/achievements screen, and a free-form Explore sandbox are all live. The site is
@@ -157,16 +157,16 @@ an open teaching project, but it means **the repo must contain no secrets** — 
 
 ## Deploying to GitHub Pages (human-only steps)
 
-These steps cannot be automated and must be done by a human with account access:
+The repo (`zeveck/learnsql`), the push of `main`, the Pages source (Deploy from a branch,
+`main`, `/ (root)`), and the custom domain (`learnsql.synapticnoise.com`) are already
+configured. Only these remain for a human with account/DNS access:
 
-1. **DNS** at the `synapticnoise.com` provider: add a **CNAME record**, host `sql`, value
-   `<account>.github.io` (the account host only — **NO** repo, **NO** path). Up to 24h to
-   propagate.
-2. **Create the GitHub repo**, add `origin`, and push `main`.
-3. **Settings → Pages → Source** = **Deploy from a branch**, Branch **`main`**, Folder
-   **`/ (root)`**.
-4. **Settings → Pages → Custom domain** = `sql.synapticnoise.com`, **Save** (await the green
-   DNS check).
-5. After the certificate provisions (up to 24h), tick **Enforce HTTPS**.
-6. **Verify** that `https://sql.synapticnoise.com/CNAME` returns the domain and that the
-   `.wasm` loads as `application/wasm`.
+1. **DNS** at the `synapticnoise.com` provider: add a **CNAME record**, host `learnsql`, value
+   `zeveck.github.io` (the account host only — **NO** repo, **NO** path). Up to 24h to
+   propagate. Until this resolves, GitHub Pages will show a DNS-check warning on the custom
+   domain — that's expected.
+2. After DNS resolves and the certificate provisions (up to 24h), tick **Settings → Pages →
+   Enforce HTTPS**.
+3. **Verify** that `https://learnsql.synapticnoise.com/CNAME` returns the domain and that the
+   `.wasm` loads as `application/wasm`. (Before DNS, the site is also reachable at
+   `https://zeveck.github.io/learnsql/`.)
