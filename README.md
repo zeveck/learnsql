@@ -64,11 +64,32 @@ never deployed**:
 
 - `@playwright/test` — the E2E test runner. It is **pinned to `1.61.0`** so its bundled
   Chromium revision (1228) matches the browser pre-installed in this dev environment.
-- `esbuild` — used in a later phase to produce a committed `vendor/codemirror.bundle.js`.
+- `esbuild` + the `@codemirror/*` packages — used in a **one-time vendoring step** (NOT a deploy
+  build) to produce the committed `vendor/codemirror.bundle.js`.
 
 `node_modules/` is gitignored and never served. The **committed `vendor/` files ARE served**
 (they are the vendored runtime assets). The site's own runtime imports resolve only to
 `./vendor/*` and `./js/*` — no `node_modules`, no CDN.
+
+### Vendoring CodeMirror 6 (one-time, re-run only to update)
+
+The browser editor is CodeMirror 6, which is normally consumed as npm packages. To keep the
+**deployed site build-free**, we bundle it ONCE into a single self-contained ESM file that is
+committed and served:
+
+```sh
+npm install        # installs the dev-only @codemirror/* packages + esbuild
+npm run vendor:cm6 # esbuild bundles tools/cm6-entry.js -> vendor/codemirror.bundle.js
+```
+
+`tools/cm6-entry.js` re-exports exactly the APIs `js/editor.js` needs. esbuild produces a single
+ESM file, guaranteeing **one** `@codemirror/state` instance (a duplicated state module breaks
+CodeMirror). The served site imports ONLY `./vendor/codemirror.bundle.js` — never `node_modules`,
+never a CDN. Re-run `npm run vendor:cm6` and re-commit the bundle only to update CodeMirror.
+
+(Fallback, NOT currently used: if esbuild/network were unavailable, an esm.sh import map in
+`index.html` pinning every `@codemirror/*` to one `@codemirror/state` via `?external=` would be
+the single tolerated runtime CDN. The vendored bundle is the primary, committed path.)
 
 ## Tests
 

@@ -11,19 +11,34 @@
     An ES-module `import` of it resolves to `undefined` in the browser, so it
     MUST be a classic <script> and MUST load BEFORE the module that reads the
     global. Do not add type="module" here.
+
+    CodeMirror is NOT loaded here — js/editor.js imports the committed, vendored
+    bundle ./vendor/codemirror.bundle.js (no node_modules, no CDN).
   -->
   <script src="./vendor/sql-wasm.js"></script>
 </head>
 <body>
   <header>
     <h1>Anime SQL Academy</h1>
-    <p class="tagline">Phase 1 engine smoke test</p>
+    <p class="tagline">Explore mode &mdash; free-form anime SQL sandbox</p>
   </header>
-  <main>
-    <section id="smoke">
-      <h2>SQL engine smoke test</h2>
+  <main class="workbench">
+    <aside id="schema-panel" class="panel schema-panel" aria-label="Database schema"></aside>
+    <section class="workspace">
       <div id="status" class="status">Loading SQL engine&hellip;</div>
-      <div id="result"></div>
+      <div class="editor-wrap">
+        <div id="editor" class="editor" aria-label="SQL editor"></div>
+      </div>
+      <div class="toolbar">
+        <button id="run-btn" type="button" class="btn btn-primary">Run &#9654;</button>
+        <button id="reset-btn" type="button" class="btn">Reset database</button>
+        <label class="persist">
+          <input id="persist-toggle" type="checkbox">
+          Persist my changes
+        </label>
+        <span class="hint">Ctrl/Cmd+Enter to run</span>
+      </div>
+      <div id="result" class="result"></div>
     </section>
   </main>
   <script type="module" src="./js/app.js"></script>

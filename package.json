@@ -6,9 +6,16 @@
   "type": "module",
   "scripts": {
     "test": "node tests/run-node.mjs",
-    "test:all": "bash scripts/test-all.sh"
+    "test:all": "bash scripts/test-all.sh",
+    "vendor:cm6": "esbuild tools/cm6-entry.js --bundle --format=esm --outfile=vendor/codemirror.bundle.js"
   },
   "devDependencies": {
+    "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/commands": "^6.7.0",
+    "@codemirror/lang-sql": "^6.8.0",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.36.0",
     "@playwright/test": "1.61.0",
     "esbuild": "^0.24.0"
   }

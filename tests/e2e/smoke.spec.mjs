@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-test('engine smoke: loads sql.js, renders (1,Vash)/(2,Spike), no console errors', async ({ page }) => {
+// Workbench smoke (Phase 3 replaced the Phase-1 (1,Vash)/(2,Spike) placeholder
+// with the real Explore workbench). This guards that the page still loads
+// sql.js from ./vendor, the WASM is fetched from ./vendor/sql-wasm.wasm, the
+// editor mounts, a query runs, and there are no console/page errors (favicon +
+// the vendored CodeMirror bundle present).
+
+test('workbench smoke: loads sql.js + vendored CodeMirror, runs a query, no console errors', async ({ page }) => {
   const consoleErrors = [];
   const pageErrors = [];
   page.on('console', (msg) => {
@@ -8,34 +14,25 @@ test('engine smoke: loads sql.js, renders (1,Vash)/(2,Spike), no console errors'
   });
   page.on('pageerror', (err) => pageErrors.push(String(err)));
 
-  // Track that the wasm is fetched from ./vendor/sql-wasm.wasm.
   let wasmFetched = false;
+  let cmBundleFetched = false;
   page.on('response', (resp) => {
     if (resp.url().endsWith('/vendor/sql-wasm.wasm')) wasmFetched = true;
+    if (resp.url().endsWith('/vendor/codemirror.bundle.js')) cmBundleFetched = true;
   });
 
   await page.goto('/');
 
-  // Wait for the result table to render.
-  const table = page.locator('#result table');
-  await expect(table).toBeVisible({ timeout: 15000 });
+  // Engine ready + editor mounted.
+  await expect(page.locator('#status')).toHaveAttribute('data-ready', 'true', { timeout: 20000 });
+  await expect(page.locator('#editor .cm-content')).toBeVisible({ timeout: 20000 });
 
-  // Header columns.
-  await expect(table.locator('thead th').nth(0)).toHaveText('a');
-  await expect(table.locator('thead th').nth(1)).toHaveText('b');
-
-  // Row data.
-  const rows = table.locator('tbody tr');
-  await expect(rows).toHaveCount(2);
-  await expect(rows.nth(0).locator('td').nth(0)).toHaveText('1');
-  await expect(rows.nth(0).locator('td').nth(1)).toHaveText('Vash');
-  await expect(rows.nth(1).locator('td').nth(0)).toHaveText('2');
-  await expect(rows.nth(1).locator('td').nth(1)).toHaveText('Spike');
-
-  // Status flipped to ready.
-  await expect(page.locator('#status')).toHaveText('SQL engine ready.');
+  // The starter query runs and renders a table.
+  await page.locator('#run-btn').click();
+  await expect(page.locator('#result table')).toBeVisible({ timeout: 10000 });
 
   expect(wasmFetched, 'wasm should be fetched from ./vendor/sql-wasm.wasm').toBe(true);
+  expect(cmBundleFetched, 'CodeMirror should load from ./vendor/codemirror.bundle.js').toBe(true);
   expect(pageErrors, 'no uncaught page errors').toEqual([]);
   expect(consoleErrors, 'no console errors (incl. favicon 404)').toEqual([]);
 });
