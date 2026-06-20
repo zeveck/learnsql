@@ -64,7 +64,7 @@ secrets.** (Plan docs live under `docs/plans/` and are unrelated to the app.)
 | Phase | Status | Commit | Notes |
 |-------|--------|--------|-------|
 | 1 — Scaffold, tooling, engine smoke test & deploy pipeline | ✅ | 227b3fd | tests 3/3 (node 2, e2e 1) |
-| 2 — Database layer (schema + seed + db.js) | ⬚ | | |
+| 2 — Database layer (schema + seed + db.js) | ✅ | | tests 25/25 (node 24, e2e 1) |
 | 3 — Query workbench UI (editor, results, schema panel, explore) | ⬚ | | |
 | 4 — Lesson + validation + scoring engine (incl. DML validation) | ⬚ | | |
 | 5 — Lesson content: basics & aggregation (lessons 1–6) | ⬚ | | |
