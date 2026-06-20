@@ -9,11 +9,25 @@
 // shape, the two exercise kinds, and the fields the validator/scorer consume).
 
 import lesson01 from '../lessons/lesson-01-select.js';
+import lesson02 from '../lessons/lesson-02-where.js';
+import lesson03 from '../lessons/lesson-03-order-limit-distinct.js';
+import lesson04 from '../lessons/lesson-04-expressions-case.js';
+import lesson05 from '../lessons/lesson-05-aggregates.js';
+import lesson06 from '../lessons/lesson-06-group-by-having.js';
 import lesson07 from '../lessons/lesson-07-inner-join.js';
 import lesson08 from '../lessons/lesson-08-left-join.js';
 
 /** All registered lesson modules (unsorted). */
-const LESSON_MODULES = [lesson01, lesson07, lesson08];
+const LESSON_MODULES = [
+  lesson01,
+  lesson02,
+  lesson03,
+  lesson04,
+  lesson05,
+  lesson06,
+  lesson07,
+  lesson08,
+];
 
 /** Lessons sorted by ascending id (the play order + gating order). */
 export const LESSONS = LESSON_MODULES.slice().sort((a, b) => a.id - b.id);
