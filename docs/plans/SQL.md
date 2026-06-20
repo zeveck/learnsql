@@ -66,7 +66,7 @@ secrets.** (Plan docs live under `docs/plans/` and are unrelated to the app.)
 | 1 — Scaffold, tooling, engine smoke test & deploy pipeline | ✅ | 227b3fd | tests 3/3 (node 2, e2e 1) |
 | 2 — Database layer (schema + seed + db.js) | ✅ | defdf04 | tests 25/25 (node 24, e2e 1) |
 | 3 — Query workbench UI (editor, results, schema panel, explore) | ✅ | f79d75e | tests 45/45 (node 40, e2e 5) |
-| 4 — Lesson + validation + scoring engine (incl. DML validation) | ✅ | | tests 98 (node 92, e2e 6) |
+| 4 — Lesson + validation + scoring engine (incl. DML validation) | ✅ | 262b764 | tests 98 (node 92, e2e 6) |
 | 5 — Lesson content: basics & aggregation (lessons 1–6) | ⬚ | | |
 | 6 — Lesson content: JOIN core (lessons 7–12) | ⬚ | | |
 | 7 — Lesson content: advanced (13–15) + capstone mystery | ⬚ | | |
