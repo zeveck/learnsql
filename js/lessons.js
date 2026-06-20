@@ -20,8 +20,12 @@ import lesson09 from '../lessons/lesson-09-full-cross-join.js';
 import lesson10 from '../lessons/lesson-10-self-join.js';
 import lesson11 from '../lessons/lesson-11-multi-join.js';
 import lesson12 from '../lessons/lesson-12-join-aggregation.js';
+import lesson13 from '../lessons/lesson-13-subqueries.js';
+import lesson14 from '../lessons/lesson-14-ctes.js';
+import lesson15 from '../lessons/lesson-15-dml.js';
+import capstone from '../lessons/lesson-16-capstone-tournament-murder.js';
 
-/** All registered lesson modules (unsorted). */
+/** All registered lesson modules (unsorted). The capstone is registered LAST. */
 const LESSON_MODULES = [
   lesson01,
   lesson02,
@@ -35,6 +39,10 @@ const LESSON_MODULES = [
   lesson10,
   lesson11,
   lesson12,
+  lesson13,
+  lesson14,
+  lesson15,
+  capstone,
 ];
 
 /** Lessons sorted by ascending id (the play order + gating order). */

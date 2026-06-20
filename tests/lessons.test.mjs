@@ -13,7 +13,15 @@ import { test, assert } from './harness.mjs';
 import { getSQL } from './_sqljs.mjs';
 import { freshDb, runQuery } from '../js/db.js';
 import { checkAnswer, expectedFor, stripComments } from '../js/validate.js';
-import { allExercises, getLesson, LESSONS } from '../js/lessons.js';
+import {
+  allExercises,
+  getLesson,
+  getLessonBySlug,
+  LESSONS,
+  lessonUnlocked,
+  lessonBronzeCleared,
+} from '../js/lessons.js';
+import { applySolve, emptyProgress, exerciseKey, BADGES } from '../js/score.js';
 
 function lastResult(outcome) {
   const results = (outcome.ok && outcome.results) || [];
@@ -179,4 +187,129 @@ test('Phase 6: lesson 12 has a JOIN + GROUP BY aggregate', () => {
     (s) => s.includes('join') && s.includes('group by')
   );
   assert(hasJoinGroup, 'lesson 12 must contain a JOIN + GROUP BY solution');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 7 — advanced lessons (13-15) + the capstone mystery.
+// ---------------------------------------------------------------------------
+
+const CAPSTONE = getLessonBySlug('capstone-tournament-murder');
+
+// (i) Lessons 13-15 load with >= 4 exercises and the right headline construct.
+test('Phase 7: lessons 13-15 load with content', () => {
+  for (const id of [13, 14, 15]) {
+    const lesson = getLesson(id);
+    assert(lesson, `lesson ${id} is not registered`);
+    assert((lesson.exercises || []).length >= 4, `lesson ${id} should have >= 4 exercises`);
+  }
+  // Subqueries use a nested SELECT; CTEs use WITH.
+  assert(
+    lessonSolutions(getLesson(13)).some((s) => /\(\s*select/.test(s)),
+    'lesson 13 must contain a subquery (a nested SELECT)'
+  );
+  assert(
+    lessonSolutions(getLesson(14)).some((s) => s.includes('with ')),
+    'lesson 14 must contain a CTE (WITH ...)'
+  );
+});
+
+// (i.b) Lesson 15 uses dml exercises with verifySql (the headline assertion).
+test('Phase 7: lesson 15 exercises are dml with verifySql', () => {
+  const l15 = getLesson(15);
+  const dmls = (l15.exercises || []).filter((e) => e.kind === 'dml');
+  assert(dmls.length >= 4, 'lesson 15 must have >= 4 dml exercises');
+  for (const e of dmls) {
+    assert(typeof e.verifySql === 'string' && e.verifySql.trim(), 'every lesson-15 dml needs a verifySql SELECT');
+  }
+  // Cover INSERT, UPDATE, and DELETE across the lesson.
+  const sols = dmls.map((e) => stripComments(e.solution || '').toLowerCase());
+  assert(sols.some((s) => s.includes('insert')), 'lesson 15 must cover INSERT');
+  assert(sols.some((s) => s.includes('update')), 'lesson 15 must cover UPDATE');
+  assert(sols.some((s) => s.includes('delete')), 'lesson 15 must cover DELETE');
+});
+
+// (ii) The capstone's final exercise solution returns a non-empty UNIQUE culprit.
+test('Phase 7: capstone final solution returns exactly one unique culprit', async () => {
+  const SQL = await getSQL();
+  assert(CAPSTONE, 'the capstone lesson must be registered');
+  const finalEx = CAPSTONE.exercises[CAPSTONE.exercises.length - 1];
+  assert(finalEx.kind === 'query', 'the capstone final exercise must be a query');
+
+  const expected = expectedFor(SQL, finalEx);
+  assert(expected.values.length === 1, `capstone final must return exactly 1 row, got ${expected.values.length}`);
+  assert(expected.columns.length === 1, 'capstone final must return a single (name) column');
+  assert(expected.values[0][0] === 'Makoto Shishio', `unexpected culprit: ${JSON.stringify(expected.values[0])}`);
+
+  // The canonical solution validates as correct via the existing comparison.
+  const verdict = checkAnswer(SQL, finalEx, finalEx.solution);
+  assert(verdict.correct === true, `capstone solution not correct: ${JSON.stringify(verdict)}`);
+});
+
+// (iii) Solving the capstone awards 300 XP + the "Detective" badge via js/score.js.
+test('Phase 7: solving the capstone awards 300 XP + Detective badge', () => {
+  assert(CAPSTONE, 'the capstone lesson must be registered');
+  const lastIdx = CAPSTONE.exercises.length - 1;
+  const finalEx = CAPSTONE.exercises[lastIdx];
+  // The final exercise carries the capstone tag the scorer keys on.
+  assert(
+    Array.isArray(finalEx.tags) && finalEx.tags.includes('capstone'),
+    'the capstone final exercise must be tagged capstone'
+  );
+
+  const before = emptyProgress();
+  const { progress, xpAwarded, newBadges } = applySolve(before, {
+    key: exerciseKey(CAPSTONE.id, lastIdx),
+    tier: finalEx.tier,
+    capstone: true,
+    today: '2026-06-20',
+    event: { exercise: finalEx },
+  });
+
+  assert(xpAwarded === 300, `capstone should award 300 XP, got ${xpAwarded}`);
+  assert(progress.xp === 300, `progress XP should be 300, got ${progress.xp}`);
+  assert(newBadges.includes(BADGES.DETECTIVE), `capstone should award the Detective badge, got ${JSON.stringify(newBadges)}`);
+  assert(progress.badges.includes(BADGES.DETECTIVE), 'Detective badge must be recorded in progress');
+});
+
+// (iv) The capstone is gated — locked until the chain through lesson 12 is cleared.
+test('Phase 7: capstone is gated (locked until prior lessons cleared)', () => {
+  assert(CAPSTONE, 'the capstone lesson must be registered');
+  const keyFn = exerciseKey;
+
+  // With no progress at all, the capstone is locked.
+  assert(
+    lessonUnlocked(CAPSTONE, {}, keyFn) === false,
+    'capstone must be LOCKED with empty progress'
+  );
+
+  // Clearing only through lesson 12 (its bronze) is NOT enough — 13/14/15 gate it too.
+  const solved = {};
+  for (const id of [6, 7, 8, 9, 10, 11, 12]) {
+    const lesson = getLesson(id);
+    (lesson.exercises || []).forEach((e, i) => {
+      if (e.tier === 'bronze') solved[keyFn(id, i)] = true;
+    });
+  }
+  assert(
+    lessonUnlocked(CAPSTONE, solved, keyFn) === false,
+    'capstone must still be locked when only through-lesson-12 bronze is cleared'
+  );
+
+  // Clearing the bronze of every lesson before the capstone unlocks it.
+  const fully = { ...solved };
+  for (const lesson of LESSONS) {
+    if (lesson.id === CAPSTONE.id) continue;
+    (lesson.exercises || []).forEach((e, i) => {
+      if (e.tier === 'bronze') fully[keyFn(lesson.id, i)] = true;
+    });
+  }
+  // Sanity: the immediately-preceding lesson (15) is now bronze-cleared.
+  assert(
+    lessonBronzeCleared(getLesson(15), fully, keyFn),
+    'lesson 15 bronze should be cleared in the fully-solved fixture'
+  );
+  assert(
+    lessonUnlocked(CAPSTONE, fully, keyFn) === true,
+    'capstone must UNLOCK once every preceding lesson bronze is cleared'
+  );
 });
