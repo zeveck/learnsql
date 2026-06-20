@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anime SQL Academy</title>
+  <link rel="icon" href="./assets/favicon.svg">
+  <link rel="stylesheet" href="./css/styles.css">
+  <!--
+    sql.js is a CLASSIC (UMD) script: it exposes a global `initSqlJs`.
+    An ES-module `import` of it resolves to `undefined` in the browser, so it
+    MUST be a classic <script> and MUST load BEFORE the module that reads the
+    global. Do not add type="module" here.
+  -->
+  <script src="./vendor/sql-wasm.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Anime SQL Academy</h1>
+    <p class="tagline">Phase 1 engine smoke test</p>
+  </header>
+  <main>
+    <section id="smoke">
+      <h2>SQL engine smoke test</h2>
+      <div id="status" class="status">Loading SQL engine&hellip;</div>
+      <div id="result"></div>
+    </section>
+  </main>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

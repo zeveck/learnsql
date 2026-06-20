@@ -1,0 +1,15 @@
+{
+  "name": "anime-sql-academy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dev-only tooling for the Anime SQL Academy static site. NEVER deployed or loaded by the site.",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run-node.mjs",
+    "test:all": "bash scripts/test-all.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.0",
+    "esbuild": "^0.24.0"
+  }
+}
