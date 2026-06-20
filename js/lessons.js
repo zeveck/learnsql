@@ -1,9 +1,15 @@
-// Lesson loader (Phase 4).
+// Lesson loader (Phase 4; gating removed Phase 9).
 //
 // The deployed site is build-free with no directory listing, so lessons are
 // imported EXPLICITLY here (each lesson is a default-exported data object under
 // lessons/). As content phases land, add their modules to LESSON_MODULES — the
-// ordering, lookup, and gating helpers below work over whatever is registered.
+// ordering, lookup, and progress helpers below work over whatever is registered.
+//
+// ACCESS MODEL: every lesson (including the capstone) is freely openable in any
+// order — there is NO sequential gating and NO intra-lesson tier lock. Learners
+// can do whichever lessons they want. The helpers below only describe PROGRESS
+// (which tiers are solved, whether a lesson is complete) so the map can show
+// per-lesson completion indicators; they never lock anything.
 //
 // See lessons/README.md for the authoring contract (the exact lesson + exercise
 // shape, the two exercise kinds, and the fields the validator/scorer consume).
@@ -45,7 +51,7 @@ const LESSON_MODULES = [
   capstone,
 ];
 
-/** Lessons sorted by ascending id (the play order + gating order). */
+/** Lessons sorted by ascending id (the suggested play order; NOT a gate). */
 export const LESSONS = LESSON_MODULES.slice().sort((a, b) => a.id - b.id);
 
 /** Look up a lesson by numeric id. */
@@ -73,9 +79,9 @@ export function allExercises() {
 export const TIER_ORDER = ['bronze', 'silver', 'gold'];
 
 /**
- * Is a lesson's Bronze requirement satisfied? A lesson is "passed enough to
- * advance" once every BRONZE exercise in it is solved (Gold is optional). A
- * lesson with no bronze exercises requires its first exercise solved.
+ * Has every BRONZE exercise of a lesson been solved? (A lesson with no bronze
+ * exercises falls back to "its first exercise solved".) This is a pure PROGRESS
+ * readout — it no longer gates anything; the map uses it to light the 🥉 medal.
  *
  * @param {object} lesson
  * @param {object} solvedExercises map of exerciseKey -> true
@@ -101,25 +107,63 @@ export function lessonComplete(lesson, solvedExercises, keyFn) {
 }
 
 /**
- * Is a lesson unlocked? The first lesson is always unlocked; any later lesson
- * unlocks once the PREVIOUS lesson (by play order) has its Bronze cleared.
+ * Every lesson is freely accessible — there is NO sequential gating. This helper
+ * is retained (always true) so older callers/tests have a stable answer: a
+ * lesson is never locked, regardless of progress.
  */
-export function lessonUnlocked(lesson, solvedExercises, keyFn) {
-  const idx = LESSONS.findIndex((l) => l.id === lesson.id);
-  if (idx <= 0) return true;
-  const prev = LESSONS[idx - 1];
-  return lessonBronzeCleared(prev, solvedExercises, keyFn);
+export function lessonUnlocked(/* lesson, solvedExercises, keyFn */) {
+  return true;
 }
 
 /**
- * A map view for the lesson home: each lesson with its unlocked/complete state
- * and bronze-cleared flag.
+ * Per-tier completion state for a lesson, used to light the card's medals.
+ *
+ * For each tier present in the lesson, returns { present, total, solved, done }:
+ *   - present: the tier has at least one exercise
+ *   - total:   how many exercises of that tier
+ *   - solved:  how many of them are solved
+ *   - done:    every exercise of that tier is solved (and at least one exists)
+ * A tier with no exercises is { present:false, total:0, solved:0, done:false }.
+ *
+ * @param {object} lesson
+ * @param {object} solvedExercises map of exerciseKey -> true
+ * @param {(lessonId:number, idx:number)=>string} keyFn
+ */
+export function lessonTierState(lesson, solvedExercises, keyFn) {
+  const ex = lesson.exercises || [];
+  const out = {};
+  for (const tier of TIER_ORDER) {
+    const idxs = ex.map((e, i) => ({ e, i })).filter(({ e }) => e.tier === tier);
+    const solved = idxs.filter(({ i }) => !!solvedExercises[keyFn(lesson.id, i)]).length;
+    out[tier] = {
+      present: idxs.length > 0,
+      total: idxs.length,
+      solved,
+      done: idxs.length > 0 && solved === idxs.length,
+    };
+  }
+  return out;
+}
+
+/** How many of a lesson's exercises are solved (and the total). */
+export function lessonSolvedCount(lesson, solvedExercises, keyFn) {
+  const ex = lesson.exercises || [];
+  const solved = ex.filter((_, i) => !!solvedExercises[keyFn(lesson.id, i)]).length;
+  return { solved, total: ex.length };
+}
+
+/**
+ * A map view for the lesson home. Every lesson is accessible (unlocked:true) —
+ * the view carries PROGRESS only: per-tier medal state, the solved/total
+ * counter, and whether the lesson is fully complete.
  */
 export function lessonMap(solvedExercises, keyFn) {
   return LESSONS.map((lesson) => ({
     lesson,
-    unlocked: lessonUnlocked(lesson, solvedExercises, keyFn),
+    unlocked: true,
     bronzeCleared: lessonBronzeCleared(lesson, solvedExercises, keyFn),
     complete: lessonComplete(lesson, solvedExercises, keyFn),
+    tiers: lessonTierState(lesson, solvedExercises, keyFn),
+    count: lessonSolvedCount(lesson, solvedExercises, keyFn),
   }));
 }

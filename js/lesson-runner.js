@@ -4,8 +4,11 @@
 // highlighting, the CodeMirror editor, Run + Check, a tier badge, priced
 // progressive hints, the validator verdict + diagnosis, and per-lesson +
 // overall progress bars. On a correct Check it applies the solve through
-// js/score.js (XP / level / streak / badges), persists, and unlocks the next
-// lesson per the gating rules in js/lessons.js.
+// js/score.js (XP / level / streak / badges) and persists.
+//
+// ACCESS: every exercise tab is freely reachable (no intra-lesson tier lock) and
+// every lesson is freely openable from the map — there is no gating. The
+// "Next exercise" / "Next lesson" buttons are pure convenience for linear play.
 //
 // Per-Check determinism: js/validate.checkAnswer ALWAYS runs on a fresh seeded
 // clone for both the canonical and the user run — a prior Explore edit cannot
@@ -171,8 +174,7 @@ export function createLessonRunner(cfg) {
 
     host.querySelector('#lesson-back').addEventListener('click', () => onExit());
 
-    // Exercise tab strip (with lock state — a later exercise is reachable only
-    // when the prior tier is solved, mirroring intra-lesson progression).
+    // Exercise tab strip — every tab is freely reachable (no intra-lesson lock).
     renderTabs();
 
     // Editor.
@@ -195,19 +197,15 @@ export function createLessonRunner(cfg) {
     const solved = getProgress().solvedExercises || {};
     tabs.innerHTML = '';
     lesson.exercises.forEach((ex, i) => {
-      // An exercise is reachable if it's the first, already solved, or the
-      // previous one is solved.
-      const unlocked = i === 0 || !!solved[key(i)] || !!solved[key(i - 1)];
+      // Every exercise is freely reachable — do the tiers in whatever order.
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className =
         'exercise-tab tier-' + ex.tier +
         (i === exIndex ? ' active' : '') +
-        (solved[key(i)] ? ' done' : '') +
-        (unlocked ? '' : ' locked');
-      btn.textContent = `${i + 1}. ${ex.tier}` + (solved[key(i)] ? ' ✓' : unlocked ? '' : ' 🔒');
-      btn.disabled = !unlocked;
-      btn.addEventListener('click', () => unlocked && enterExercise(i));
+        (solved[key(i)] ? ' done' : '');
+      btn.textContent = `${i + 1}. ${ex.tier}` + (solved[key(i)] ? ' ✓' : '');
+      btn.addEventListener('click', () => enterExercise(i));
       tabs.appendChild(btn);
     });
   }

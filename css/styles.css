@@ -422,13 +422,55 @@ header {
   gap: var(--sp-2);
   transition: border-color 0.12s ease, transform 0.12s ease;
 }
-.lesson-card:not(.locked):hover { border-color: var(--accent); }
-.lesson-card.locked { opacity: 0.5; }
-.lesson-card.complete { border-color: var(--success); }
+.lesson-card:hover { border-color: var(--accent); }
+.lesson-card.complete {
+  border-color: var(--success);
+  box-shadow: 0 0 0 1px var(--success), 0 0 14px rgba(107, 255, 158, 0.22);
+}
+/* The capstone is the finale — keep its special look (no lock). */
+.lesson-card.capstone {
+  border-color: var(--gold);
+  background: linear-gradient(160deg, var(--panel-2), rgba(224, 181, 58, 0.08));
+}
+.lesson-card.capstone.complete {
+  box-shadow: 0 0 0 1px var(--gold), 0 0 16px rgba(224, 181, 58, 0.3);
+}
 .lesson-card h3 { margin: 0; }
 .lesson-num { font-size: 0.8rem; opacity: 0.7; }
+.lesson-card.capstone .lesson-num { color: var(--gold); opacity: 1; font-weight: 700; }
 .lesson-card-head { display: flex; justify-content: space-between; align-items: center; }
 .lesson-card-status { font-size: 0.85rem; opacity: 0.8; }
+
+/* Per-lesson completion indicators (map cards). */
+.lesson-card-progress { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: auto; }
+.lesson-medals { display: flex; gap: var(--sp-2); font-size: 1.4rem; line-height: 1; }
+.medal {
+  filter: grayscale(1) opacity(0.4);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+.medal.medal-solved { filter: none; transform: translateY(-1px); }
+/* Lit medals get a tier-tinted glow so "solved" reads at a glance (the title/
+   aria text carries the non-color signal). */
+.medal.medal-bronze.medal-solved { text-shadow: 0 0 8px rgba(176, 122, 58, 0.85); }
+.medal.medal-silver.medal-solved { text-shadow: 0 0 8px rgba(154, 163, 178, 0.85); }
+.medal.medal-gold.medal-solved   { text-shadow: 0 0 9px rgba(224, 181, 58, 0.95); }
+.medal.medal-absent { filter: grayscale(1) opacity(0.14); }
+.lesson-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: 0.85rem;
+}
+.lesson-counter { opacity: 0.8; font-variant-numeric: tabular-nums; }
+.lesson-complete-flag { color: var(--success); font-weight: 700; }
+.btn-capstone {
+  background: var(--gold);
+  color: #11122a;
+  border-color: var(--gold);
+  font-weight: 700;
+}
+.btn-capstone:hover { background: #f0c956; }
 
 /* Badges */
 .badge {

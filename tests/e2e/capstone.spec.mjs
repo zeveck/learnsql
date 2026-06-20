@@ -1,18 +1,16 @@
 import { test, expect } from '@playwright/test';
 
-// Capstone E2E (Phase 8, Chromium).
+// Capstone E2E (Phase 8; access model updated Phase 9, Chromium).
 //
-// Asserts the capstone (lesson 16) is LOCKED before its gate is met and UNLOCKED
-// after lesson 15's Bronze is cleared, then that solving the final accusation
-// with the canonical query awards the "Detective" badge + 300 XP and the profile
-// (#/profile) reflects it.
+// Asserts the capstone (lesson 16) is OPENABLE regardless of progress (no gating
+// — it's freely accessible even from a clean slate), then that solving the final
+// accusation with the canonical query STILL awards the "Detective" badge + 300 XP
+// and the profile (#/profile) reflects it (the reward logic is unchanged).
 //
-// SEEDING: rather than replay 15 lessons, we call the page's test hook
-// `window.__animeSqlAcademy.seedBronzeThrough(N)`, which writes the SAME
-// solvedExercises map the runner would have written (every bronze of lessons
-// 1..N) and persists it. The gate logic in js/lessons.js is UNCHANGED and is
-// still evaluated honestly against that seeded data — we only fast-forward the
-// state, we do not weaken the gate.
+// SEEDING: rather than replay lessons, we call the page's test hook
+// `window.__animeSqlAcademy.seedProgress(...)` to fast-forward to a chosen
+// solvedExercises map. The reward path (XP + Detective badge) is exercised for
+// real against the canonical query.
 
 async function ready(page) {
   await expect(page.locator('#status')).toHaveAttribute('data-ready', 'true', { timeout: 20000 });
@@ -35,16 +33,8 @@ async function clearStorage(page) {
   });
 }
 
-async function seedBronzeThrough(page, maxLessonId) {
-  await page.evaluate((n) => globalThis.__animeSqlAcademy.seedBronzeThrough(n), maxLessonId);
-  // A same-hash goto does NOT reload the SPA; reload so the persisted seed is
-  // re-read by app.js and the map re-renders against it.
-  await page.reload();
-  await ready(page);
-}
-
 // Seed a specific solvedExercises map directly (e.g. to pre-solve the capstone's
-// clue exercises so its final accusation tab is reachable), then reload.
+// clue exercises so the lesson completes when the accusation is solved), reload.
 async function seedProgress(page, partial) {
   await page.evaluate((pr) => globalThis.__animeSqlAcademy.seedProgress(pr), partial);
   await page.reload();
@@ -66,49 +56,49 @@ const CAPSTONE_SOLUTION =
   'AND c.id IN (SELECT ci.character_id FROM character_items ci JOIN items i ON i.id = ci.item_id ' +
   "WHERE i.item_type = 'weapon');";
 
-test('Capstone is LOCKED before lesson 15 bronze, UNLOCKED after', async ({ page }) => {
+test('Capstone is OPENABLE regardless of progress (no gating)', async ({ page }) => {
   await clearStorage(page);
 
-  // Fresh slate: the capstone card is locked on the map.
+  // Fresh slate, NO progress: the capstone card is present and NOT locked, and
+  // its CTA links straight into the lesson (no disabled "Locked" state).
   await page.goto('/#/');
   await ready(page);
   const card16 = page.locator('.lesson-card[data-lesson="16"]');
   await expect(card16).toBeVisible();
-  await expect(card16).toHaveClass(/locked/);
+  await expect(card16).not.toHaveClass(/locked/);
+  await expect(card16.locator('a.btn')).toHaveAttribute('href', '#/lesson/16');
 
-  // Seed bronzes for lessons 1..15 -> the capstone's gate (lesson 15 bronze) is met.
-  await seedBronzeThrough(page, 15);
-  await page.goto('/#/');
+  // Keep its special finale visual treatment (the capstone class), but no lock.
+  await expect(card16).toHaveClass(/capstone/);
+
+  // And it actually opens from a clean slate — every tab is reachable.
+  await page.goto('/#/lesson/16');
   await ready(page);
-  await expect(page.locator('.lesson-card[data-lesson="16"]')).not.toHaveClass(/locked/);
+  await expect(page.locator('#view-lesson .cm-content')).toBeVisible({ timeout: 20000 });
+  const tabCount = await page.locator('#exercise-tabs .exercise-tab').count();
+  expect(tabCount).toBeGreaterThanOrEqual(4);
+  // The final accusation tab is reachable with zero prior progress (no tab lock).
+  await expect(page.locator('#exercise-tabs .exercise-tab').nth(3)).not.toHaveClass(/locked/);
 });
-
-// The capstone's solvedExercises that gate the final accusation tab: lessons 1..15
-// bronze (the lesson gate) PLUS the capstone's first three clue exercises (the
-// intra-lesson tab gate). This is exactly what a learner who worked the clues
-// would have; the gate logic is unchanged.
-function capstoneReadyProgress() {
-  const solvedExercises = {};
-  // bronze of lessons 1..15 (gate the capstone lesson itself)
-  for (let id = 1; id <= 15; id++) solvedExercises[`${id}:0`] = true;
-  // capstone clues 0,1,2 solved -> tab 3 (the accusation) is reachable
-  solvedExercises['16:0'] = true;
-  solvedExercises['16:1'] = true;
-  solvedExercises['16:2'] = true;
-  return { solvedExercises, lastActiveDate: new Date().toISOString().slice(0, 10) };
-}
 
 test('Capstone solve awards Detective + 300 XP; profile reflects it', async ({ page }) => {
   await clearStorage(page);
-  await seedProgress(page, capstoneReadyProgress());
 
-  // Open the (now unlocked) capstone and jump to its final accusation exercise.
+  // The capstone is openable from a clean slate with every tab reachable. To
+  // exercise the dedicated capstone SCORE SCREEN (which renders only when the
+  // whole lesson is complete), we pre-solve the three clue exercises so that
+  // solving the final accusation completes the lesson. This is NOT a gate — it
+  // only fast-forwards the clue work a learner would otherwise do by hand.
+  await seedProgress(page, {
+    solvedExercises: { '16:0': true, '16:1': true, '16:2': true },
+    lastActiveDate: new Date().toISOString().slice(0, 10),
+  });
+
   await page.goto('/#/lesson/16');
   await ready(page);
   await expect(page.locator('#view-lesson .cm-content')).toBeVisible({ timeout: 20000 });
 
   // The capstone has 4 exercises; the final (index 3, gold) is the accusation tab.
-  // With clues 0..2 pre-solved its tab is reachable.
   const tabs = page.locator('#exercise-tabs .exercise-tab');
   await tabs.nth(3).click();
 

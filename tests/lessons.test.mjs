@@ -19,7 +19,10 @@ import {
   getLessonBySlug,
   LESSONS,
   lessonUnlocked,
-  lessonBronzeCleared,
+  lessonComplete,
+  lessonTierState,
+  lessonSolvedCount,
+  lessonMap,
 } from '../js/lessons.js';
 import { applySolve, emptyProgress, exerciseKey, BADGES } from '../js/score.js';
 
@@ -121,7 +124,8 @@ test('Phase 6: lessons 7-12 load and are all tagged joinCore', () => {
   }
 });
 
-// (i.b) The JOIN-core lessons are gated AFTER lesson 6 (play/gating order is by id).
+// (i.b) The JOIN-core lessons sort AFTER lesson 6 (suggested play order is by id;
+// this is presentation order on the map, not a gate — every lesson is openable).
 test('Phase 6: JOIN-core lessons 7-12 sort after lesson 6', () => {
   const order = LESSONS.map((l) => l.id);
   const idx6 = order.indexOf(6);
@@ -271,45 +275,76 @@ test('Phase 7: solving the capstone awards 300 XP + Detective badge', () => {
   assert(progress.badges.includes(BADGES.DETECTIVE), 'Detective badge must be recorded in progress');
 });
 
-// (iv) The capstone is gated — locked until the chain through lesson 12 is cleared.
-test('Phase 7: capstone is gated (locked until prior lessons cleared)', () => {
+// ---------------------------------------------------------------------------
+// Phase 9 — access model: every lesson (incl. the capstone) is freely openable
+// in any order, with NO sequential gating and NO intra-lesson tier lock. The
+// helpers describe PROGRESS only (for the card completion indicators).
+// ---------------------------------------------------------------------------
+
+// (iv) The capstone — and every lesson — is accessible regardless of progress.
+test('Phase 9: every lesson (incl. capstone) is accessible with NO progress', () => {
   assert(CAPSTONE, 'the capstone lesson must be registered');
   const keyFn = exerciseKey;
 
-  // With no progress at all, the capstone is locked.
-  assert(
-    lessonUnlocked(CAPSTONE, {}, keyFn) === false,
-    'capstone must be LOCKED with empty progress'
-  );
-
-  // Clearing only through lesson 12 (its bronze) is NOT enough — 13/14/15 gate it too.
-  const solved = {};
-  for (const id of [6, 7, 8, 9, 10, 11, 12]) {
-    const lesson = getLesson(id);
-    (lesson.exercises || []).forEach((e, i) => {
-      if (e.tier === 'bronze') solved[keyFn(id, i)] = true;
-    });
-  }
-  assert(
-    lessonUnlocked(CAPSTONE, solved, keyFn) === false,
-    'capstone must still be locked when only through-lesson-12 bronze is cleared'
-  );
-
-  // Clearing the bronze of every lesson before the capstone unlocks it.
-  const fully = { ...solved };
+  // With no progress at all, nothing is locked — including the capstone.
   for (const lesson of LESSONS) {
-    if (lesson.id === CAPSTONE.id) continue;
-    (lesson.exercises || []).forEach((e, i) => {
-      if (e.tier === 'bronze') fully[keyFn(lesson.id, i)] = true;
-    });
+    assert(
+      lessonUnlocked(lesson, {}, keyFn) === true,
+      `lesson ${lesson.id} must be accessible with empty progress (no gating)`
+    );
   }
-  // Sanity: the immediately-preceding lesson (15) is now bronze-cleared.
   assert(
-    lessonBronzeCleared(getLesson(15), fully, keyFn),
-    'lesson 15 bronze should be cleared in the fully-solved fixture'
+    lessonUnlocked(CAPSTONE, {}, keyFn) === true,
+    'capstone must be OPENABLE with empty progress (no lock)'
   );
-  assert(
-    lessonUnlocked(CAPSTONE, fully, keyFn) === true,
-    'capstone must UNLOCK once every preceding lesson bronze is cleared'
-  );
+
+  // The map view reports every lesson as unlocked and (with empty progress) not
+  // complete — the indicators are pure readouts, never gates.
+  const map = lessonMap({}, keyFn);
+  assert(map.length === LESSONS.length, 'lessonMap must cover every lesson');
+  for (const entry of map) {
+    assert(entry.unlocked === true, `lessonMap entry ${entry.lesson.id} must be unlocked`);
+    assert(entry.complete === false, `lessonMap entry ${entry.lesson.id} must not be complete with empty progress`);
+  }
+});
+
+// (v) Per-tier medal state + complete state are driven by REAL solved progress.
+test('Phase 9: lesson card medal/complete state reflects seeded progress', () => {
+  const keyFn = exerciseKey;
+  const lesson = getLesson(1); // lesson 1: bronze(0), silver(1), silver(2), gold(3)
+  const tiers0 = (lesson.exercises || []).map((e) => e.tier);
+  assert(tiers0[0] === 'bronze' && tiers0[3] === 'gold', 'fixture assumes lesson 1 tier layout');
+
+  // Nothing solved -> no medal done, not complete, 0/N counter.
+  const none = lessonTierState(lesson, {}, keyFn);
+  assert(none.bronze.present && !none.bronze.done, 'bronze present but not done at zero progress');
+  assert(none.silver.present && !none.silver.done && none.silver.total === 2, 'silver: 2 exercises, none done');
+  assert(none.gold.present && !none.gold.done, 'gold present but not done at zero progress');
+  assert(lessonComplete(lesson, {}, keyFn) === false, 'lesson 1 not complete at zero progress');
+  assert(lessonSolvedCount(lesson, {}, keyFn).solved === 0, 'counter starts at 0');
+
+  // Solve the bronze only -> 🥉 lights, 🥈/🥇 stay dark, counter 1/total.
+  const solvedBronze = { [keyFn(1, 0)]: true };
+  const t1 = lessonTierState(lesson, solvedBronze, keyFn);
+  assert(t1.bronze.done === true, 'bronze medal lights when the bronze exercise is solved');
+  assert(t1.silver.done === false, 'silver stays dark until BOTH silvers are solved');
+  assert(t1.gold.done === false, 'gold stays dark until the gold is solved');
+  const c1 = lessonSolvedCount(lesson, solvedBronze, keyFn);
+  assert(c1.solved === 1 && c1.total === tiers0.length, `counter should be 1/${tiers0.length}`);
+
+  // Solve ONE of the two silvers -> silver still NOT done (needs both).
+  const oneSilver = { [keyFn(1, 0)]: true, [keyFn(1, 1)]: true };
+  assert(lessonTierState(lesson, oneSilver, keyFn).silver.done === false, 'silver needs BOTH silver exercises');
+  assert(lessonTierState(lesson, oneSilver, keyFn).silver.solved === 1, 'silver solved count = 1 of 2');
+
+  // Solve both silvers -> silver lights.
+  const bothSilver = { [keyFn(1, 0)]: true, [keyFn(1, 1)]: true, [keyFn(1, 2)]: true };
+  assert(lessonTierState(lesson, bothSilver, keyFn).silver.done === true, 'silver lights when both silvers solved');
+
+  // Solve all four -> all medals done AND lessonComplete true.
+  const all = { [keyFn(1, 0)]: true, [keyFn(1, 1)]: true, [keyFn(1, 2)]: true, [keyFn(1, 3)]: true };
+  const tAll = lessonTierState(lesson, all, keyFn);
+  assert(tAll.bronze.done && tAll.silver.done && tAll.gold.done, 'all three medals light when every exercise solved');
+  assert(lessonComplete(lesson, all, keyFn) === true, '✓ Complete when every exercise is solved');
+  assert(lessonSolvedCount(lesson, all, keyFn).solved === tiers0.length, 'counter shows all solved');
 });

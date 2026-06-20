@@ -14,7 +14,7 @@
 // text label and an aria-label, and each stat carries a visible text caption.
 
 import { LEVELS, levelDetail, ALL_BADGES, BADGE_META } from './score.js';
-import { LESSONS, lessonComplete, lessonBronzeCleared, lessonUnlocked } from './lessons.js';
+import { LESSONS, lessonComplete, lessonBronzeCleared } from './lessons.js';
 import { exerciseKey } from './score.js';
 
 function esc(s) {
@@ -61,10 +61,9 @@ export function renderProfile(host, cfg) {
     const done = (lesson.exercises || []).filter((_, i) => solved[exerciseKey(lesson.id, i)]).length;
     const complete = lessonComplete(lesson, solved, exerciseKey);
     const bronze = lessonBronzeCleared(lesson, solved, exerciseKey);
-    const unlocked = lessonUnlocked(lesson, solved, exerciseKey);
+    // Every lesson is freely accessible — the status is a pure progress readout.
     let status, statusCls;
-    if (!unlocked) { status = '🔒 Locked'; statusCls = 'locked'; }
-    else if (complete) { status = '✓ Complete'; statusCls = 'complete'; }
+    if (complete) { status = '✓ Complete'; statusCls = 'complete'; }
     else if (bronze) { status = 'Bronze cleared'; statusCls = 'partial'; }
     else if (done > 0) { status = 'In progress'; statusCls = 'partial'; }
     else { status = 'Not started'; statusCls = 'todo'; }

@@ -1,18 +1,16 @@
 import { test, expect } from '@playwright/test';
 
-// Full-curriculum smoke (Phase 8, Chromium).
+// Full-curriculum smoke (Phase 8; access model updated Phase 9, Chromium).
 //
-// End-to-end confirmation that gating, scoring, and persistence hold together:
-//   1. From a clean slate, lesson 7 is locked and the capstone is locked (gating).
-//   2. Seed bronzes 1..6 -> lesson 7 unlocks; solve lesson 7's bronze for real ->
-//      XP increases and the next lesson unlocks (scoring + gating).
-//   3. Seed bronzes 1..15 -> the capstone unlocks; solve it with the canonical
-//      query -> Detective + 300 XP (scoring).
+// End-to-end confirmation that ACCESS, scoring, and persistence hold together:
+//   1. From a clean slate, NO lesson is locked — lesson 7 and the capstone are
+//      both freely openable (no gating).
+//   2. Solve lesson 7's bronze for real -> XP increases and the lesson-7 card's
+//      completion indicator updates (bronze medal lights, counter increments).
+//   3. The capstone is openable directly; solve it (after pre-solving its clues
+//      so the lesson completes) -> Detective + 300 XP (scoring is unchanged).
 //   4. Reload -> the profile still shows the XP and the Detective badge
 //      (persistence).
-//
-// Seeding reuses the page test hook (see capstone.spec.mjs); the gate logic is
-// untouched and still evaluated against the seeded solvedExercises map.
 
 async function ready(page) {
   await expect(page.locator('#status')).toHaveAttribute('data-ready', 'true', { timeout: 20000 });
@@ -35,10 +33,8 @@ async function clearStorage(page) {
   });
 }
 
-async function seedBronzeThrough(page, n) {
-  await page.evaluate((max) => globalThis.__animeSqlAcademy.seedBronzeThrough(max), n);
-  // Reload so app.js re-reads the persisted seed and re-renders (a same-hash
-  // goto would NOT reload the SPA).
+async function seedProgress(page, partial) {
+  await page.evaluate((pr) => globalThis.__animeSqlAcademy.seedProgress(pr), partial);
   await page.reload();
   await ready(page);
 }
@@ -65,21 +61,19 @@ const CAPSTONE_SOLUTION =
   'AND c.id IN (SELECT ci.character_id FROM character_items ci JOIN items i ON i.id = ci.item_id ' +
   "WHERE i.item_type = 'weapon');";
 
-test('gating + scoring + persistence hold from lesson 7 through the capstone', async ({ page }) => {
+test('access + scoring + persistence: any lesson openable, solving updates cards, capstone rewards hold', async ({ page }) => {
   await clearStorage(page);
 
-  // (1) Clean slate: lesson 7 and the capstone are both locked.
+  // (1) Clean slate: NO cards are locked — lesson 7 and the capstone are openable.
   await page.goto('/#/');
   await ready(page);
-  await expect(page.locator('.lesson-card[data-lesson="7"]')).toHaveClass(/locked/);
-  await expect(page.locator('.lesson-card[data-lesson="16"]')).toHaveClass(/locked/);
-
-  // (2) Seed bronzes 1..6 -> lesson 7 unlocks. Solve lesson 7's bronze for real.
-  await seedBronzeThrough(page, 6);
-  await page.goto('/#/');
-  await ready(page);
+  await expect(page.locator('.lesson-card.locked')).toHaveCount(0);
   await expect(page.locator('.lesson-card[data-lesson="7"]')).not.toHaveClass(/locked/);
+  await expect(page.locator('.lesson-card[data-lesson="16"]')).not.toHaveClass(/locked/);
+  // Capstone keeps its finale visual treatment but is reachable.
+  await expect(page.locator('.lesson-card[data-lesson="16"]')).toHaveClass(/capstone/);
 
+  // (2) Solve lesson 7's bronze for real -> XP rises and the card indicator updates.
   const xpBefore = await mapXp(page);
 
   await page.goto('/#/lesson/7');
@@ -91,23 +85,19 @@ test('gating + scoring + persistence hold from lesson 7 through the capstone', a
 
   const xpAfter7 = await mapXp(page);
   expect(xpAfter7).toBeGreaterThan(xpBefore);
-  await expect(page.locator('.lesson-card[data-lesson="8"]')).not.toHaveClass(/locked/);
+  // The lesson-7 card's bronze medal is now lit and the counter shows >= 1 solved.
+  const card7 = page.locator('.lesson-card[data-lesson="7"]');
+  await expect(card7.locator('.medal.medal-bronze')).toHaveClass(/medal-solved/);
+  const c7 = await card7.locator('.lesson-counter').textContent();
+  expect(parseInt(c7.match(/(\d+)\s*\//)[1], 10)).toBeGreaterThanOrEqual(1);
 
-  // (3) Seed bronzes 1..15 -> the capstone unlocks. Verify the gate, then seed the
-  // capstone's clue exercises (0..2) so the final accusation tab is reachable, and
-  // solve the accusation for real.
-  await seedBronzeThrough(page, 15);
-  await page.goto('/#/');
-  await ready(page);
-  await expect(page.locator('.lesson-card[data-lesson="16"]')).not.toHaveClass(/locked/);
-
-  // Combined seed: lessons 1..15 bronze + capstone clues 0..2.
-  const solved = {};
-  for (let id = 1; id <= 15; id++) solved[`${id}:0`] = true;
-  solved['16:0'] = true; solved['16:1'] = true; solved['16:2'] = true;
-  await page.evaluate((s) => globalThis.__animeSqlAcademy.seedProgress({ solvedExercises: s }), solved);
-  await page.reload();
-  await ready(page);
+  // (3) The capstone is openable directly. Pre-solve its clue exercises (0..2)
+  // so that solving the accusation completes the lesson and shows the score
+  // screen — this only fast-forwards the clue work, it is NOT a gate.
+  await seedProgress(page, {
+    solvedExercises: { '16:0': true, '16:1': true, '16:2': true },
+    lastActiveDate: new Date().toISOString().slice(0, 10),
+  });
 
   await page.goto('/#/lesson/16');
   await ready(page);

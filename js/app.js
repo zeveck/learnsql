@@ -199,20 +199,40 @@ async function main() {
     const map = lessonMap(progress.solvedExercises || {}, exerciseKey);
 
     const cards = map
-      .map(({ lesson, unlocked, complete, bronzeCleared }) => {
-        const cls = 'lesson-card' + (unlocked ? '' : ' locked') + (complete ? ' complete' : '');
-        const status = !unlocked ? '🔒 Locked' : complete ? '✓ Complete' : bronzeCleared ? 'In progress' : 'Unlocked';
-        const cta = unlocked
-          ? `<a class="btn btn-primary" href="#/lesson/${lesson.id}">${complete ? 'Review' : 'Start'}</a>`
-          : `<span class="btn disabled">Locked</span>`;
+      .map(({ lesson, complete, tiers, count }) => {
+        const isCapstone = !!(lesson.capstone || lesson.isCapstone);
+        const started = count.solved > 0;
+        const cls =
+          'lesson-card' +
+          (complete ? ' complete' : '') +
+          (isCapstone ? ' capstone' : '');
+
+        const medals = renderMedals(tiers);
+
+        // Status line: a clear ✓ Complete state (check glyph, not color alone),
+        // else in-progress or a "not started" prompt.
+        const status = complete
+          ? '<span class="lesson-complete-flag">✓ Complete</span>'
+          : started
+            ? '<span class="lesson-card-status">In progress</span>'
+            : '<span class="lesson-card-status">Not started</span>';
+
+        const counter = `<span class="lesson-counter" aria-label="${count.solved} of ${count.total} exercises solved">${count.solved}/${count.total} solved</span>`;
+
+        const ctaLabel = complete ? 'Review' : started ? 'Continue' : isCapstone ? 'Attempt finale' : 'Start';
+        const cta = `<a class="btn ${isCapstone ? 'btn-capstone' : 'btn-primary'}" href="#/lesson/${lesson.id}">${ctaLabel}</a>`;
+
         return `
           <div class="${cls}" data-lesson="${lesson.id}">
             <div class="lesson-card-head">
-              <span class="lesson-num">Lesson ${lesson.id}</span>
+              <span class="lesson-num">${isCapstone ? '★ Capstone' : 'Lesson ' + lesson.id}</span>
               ${lesson.joinCore ? '<span class="badge joincore">JOIN core</span>' : ''}
             </div>
             <h3>${escapeHtml(lesson.title)}</h3>
-            <div class="lesson-card-status">${status}</div>
+            <div class="lesson-card-progress">
+              <div class="lesson-medals" role="img" aria-label="${medalAria(tiers)}">${medals}</div>
+              <div class="lesson-card-meta">${status}${counter}</div>
+            </div>
             ${cta}
           </div>`;
       })
@@ -241,7 +261,7 @@ async function main() {
       <div class="map-header">
         <div>
           <h2>Lesson Map</h2>
-          <p class="tagline">Clear each lesson's Bronze to unlock the next. Gold is optional bragging rights.</p>
+          <p class="tagline">Every lesson is open — pick any you like, in any order. Light all three medals 🥉🥈🥇 to complete a lesson.</p>
         </div>
         <div class="map-stats">
           <div class="stat-big">${escapeHtml(ld.level)}</div>
@@ -329,6 +349,35 @@ async function main() {
 
   window.addEventListener('hashchange', () => route());
   await route();
+}
+
+// Per-tier medal display for a lesson card. Each medal carries a non-color
+// signal (the medal emoji + a per-medal title/aria-label like "Bronze: solved"
+// / "Gold: not yet"), so the lit/greyed distinction never relies on color alone.
+const MEDAL_GLYPH = { bronze: '🥉', silver: '🥈', gold: '🥇' };
+const MEDAL_LABEL = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };
+
+function renderMedals(tiers) {
+  return ['bronze', 'silver', 'gold']
+    .map((tier) => {
+      const t = tiers[tier] || { present: false, done: false, solved: 0, total: 0 };
+      if (!t.present) {
+        // Tier not authored for this lesson — render a neutral placeholder so the
+        // three slots stay aligned, but mark it as "no tier".
+        return `<span class="medal medal-absent" title="${MEDAL_LABEL[tier]}: not in this lesson" aria-hidden="true">${MEDAL_GLYPH[tier]}</span>`;
+      }
+      const state = t.done ? 'solved' : 'pending';
+      const title = `${MEDAL_LABEL[tier]}: ${t.done ? 'solved' : 'not yet'}${t.total > 1 ? ` (${t.solved}/${t.total})` : ''}`;
+      return `<span class="medal medal-${tier} medal-${state}" title="${title}">${MEDAL_GLYPH[tier]}</span>`;
+    })
+    .join('');
+}
+
+function medalAria(tiers) {
+  return ['bronze', 'silver', 'gold']
+    .filter((tier) => tiers[tier] && tiers[tier].present)
+    .map((tier) => `${MEDAL_LABEL[tier]} ${tiers[tier].done ? 'solved' : 'not yet'}`)
+    .join(', ');
 }
 
 /** Local escape (the renderer's escapeHtml is import-coupled to results.js). */
